@@ -11,14 +11,22 @@ import {
   YAxis,
 } from "recharts"
 
-import { mockMonthlyPl } from "@/data/mock/tables"
+export type MonthlyPlChartDataPoint = {
+  month: string
+  revenue: number
+  expenses: number
+}
 
-export function MonthlyPlChart() {
+type MonthlyPlChartProps = {
+  data: MonthlyPlChartDataPoint[]
+}
+
+export function MonthlyPlChart({ data }: MonthlyPlChartProps) {
   return (
     <div className="h-[280px] w-full min-w-0 min-h-[280px]">
       <ResponsiveContainer width="100%" height={280} minHeight={280}>
         <BarChart
-          data={mockMonthlyPl}
+          data={data}
           margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
         >
           <CartesianGrid

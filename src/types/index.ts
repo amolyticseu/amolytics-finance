@@ -10,6 +10,9 @@ export type InvoiceStatus =
 
 export type PaymentStatus = "pending" | "completed" | "failed"
 
+/** `salary_payments.status` — matches schema check. */
+export type SalaryPaymentStatus = "pending" | "partial" | "paid"
+
 export type BankProvider = "wise" | "revolut" | "hsbc" | "icici" | "other"
 
 export type ExpenseCategory =
@@ -20,13 +23,51 @@ export type ExpenseCategory =
   | "compliance"
   | "other"
 
+/** `expenses.category` — matches `schema.sql` check constraint. */
+export type ExpenseCategoryDb =
+  | "emi"
+  | "rent"
+  | "utilities"
+  | "subscription"
+  | "workspace"
+  | "tax"
+  | "compliance"
+  | "other"
+
+/** `expenses.status` — matches `schema.sql` check constraint. */
+export type ExpenseStatus =
+  | "pending"
+  | "paid"
+  | "overdue"
+  | "cancelled"
+
+/** Phase 1 mock tasks UI (`mockComplianceTasks`). */
 export type TaskStatus = "open" | "in_progress" | "done"
+
+/** `tasks.category` — matches `schema.sql` check constraint. */
+export type TaskCategoryDb =
+  | "invoice"
+  | "payment"
+  | "salary"
+  | "compliance"
+  | "tax"
+  | "company"
+  | "bank"
+  | "other"
+
+/** `tasks.status` — matches `schema.sql` check constraint. */
+export type TaskDbStatus = "todo" | "in_progress" | "done" | "blocked"
+
+/** `tasks.priority` — matches `schema.sql` check constraint. */
+export type TaskPriorityDb = "low" | "medium" | "high" | "urgent"
 
 /** Labels shown via StatusBadge in Phase 1 mock UI. */
 export type FinanceStatus =
   | InvoiceStatus
   | PaymentStatus
   | TaskStatus
+  | TaskDbStatus
+  | SalaryPaymentStatus
   | "scheduled"
   | "active"
 

@@ -7,55 +7,115 @@ import {
   DataTableTd,
   DataTableTh,
 } from "@/components/shell/data-table"
-import { StatusBadge } from "@/components/shell/status-badge"
-import { mockPayments } from "@/data/mock/tables"
+import { getPayments } from "@/lib/data/payments"
 import { formatEur } from "@/lib/format"
+import type { PaymentListItem, PaymentTypeDb } from "@/lib/supabase/types"
 
-export default function PaymentsPage() {
+export const dynamic = "force-dynamic"
+
+const PAYMENT_TYPE_LABEL: Record<PaymentTypeDb, string> = {
+  client_receipt: "Client receipt",
+  salary: "Salary",
+  expense: "Expense",
+  transfer: "Transfer",
+  other: "Other",
+}
+
+function formatPaymentType(t: PaymentTypeDb): string {
+  return PAYMENT_TYPE_LABEL[t] ?? t
+}
+
+function formatDirection(dir: PaymentListItem["direction"]): string {
+  return dir === "in" ? "In" : "Out"
+}
+
+function formatMoney(amount: number, currency: string): string {
+  if (currency === "EUR") return formatEur(amount)
+  return `${amount.toLocaleString("en-IE", { maximumFractionDigits: 2 })} ${currency}`
+}
+
+export default async function PaymentsPage() {
+  const { rows, source } = await getPayments()
+
   return (
     <div className="space-y-8">
       <PageHeader
         title="Payments"
         description="Cash-in across Wise, Revolut, HSBC, and ICICI — reconciliation is mock-only for now."
       />
+
+      <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+        Using database values when configured; fallback defaults are shown in
+        local mock mode.{" "}
+        <span className="text-foreground/80">
+          Source:{" "}
+          {source === "database"
+            ? "payments (+ invoices & bank_accounts joins)"
+            : "built-in mock register"}
+          .
+        </span>
+      </p>
+
       <SectionCard
         title="Received & in-flight"
-        description="Match payments to invoices in a later phase."
+        description={
+          source === "database"
+            ? "Rows from Supabase (read-only). Match to invoices in a later phase."
+            : "Mock line items for local development. Match to invoices in a later phase."
+        }
       >
-        <DataTable>
+        <DataTable className="min-w-[56rem]">
           <DataTableHeader>
             <tr>
-              <DataTableTh>ID</DataTableTh>
               <DataTableTh>Date</DataTableTh>
-              <DataTableTh>Account</DataTableTh>
-              <DataTableTh>Reference</DataTableTh>
-              <DataTableTh>Invoice</DataTableTh>
+              <DataTableTh>Direction</DataTableTh>
+              <DataTableTh>Type</DataTableTh>
               <DataTableTh align="right">Amount</DataTableTh>
-              <DataTableTh>Status</DataTableTh>
+              <DataTableTh>Currency</DataTableTh>
+              <DataTableTh>Invoice #</DataTableTh>
+              <DataTableTh>Bank / account</DataTableTh>
+              <DataTableTh>Reference</DataTableTh>
+              <DataTableTh>Payer / payee</DataTableTh>
+              <DataTableTh>Notes</DataTableTh>
             </tr>
           </DataTableHeader>
           <DataTableBody>
-            {mockPayments.map((p) => (
+            {rows.map((row) => (
               <tr
-                key={p.id}
+                key={row.id}
                 className="border-b border-border/40 transition-colors hover:bg-muted/15 last:border-b-0"
               >
-                <DataTableTd className="font-mono text-xs text-muted-foreground">
-                  {p.id}
+                <DataTableTd className="tabular-nums text-muted-foreground">
+                  {row.payment_date || "—"}
+                </DataTableTd>
+                <DataTableTd>{formatDirection(row.direction)}</DataTableTd>
+                <DataTableTd className="font-medium">
+                  {formatPaymentType(row.payment_type)}
+                </DataTableTd>
+                <DataTableTd align="right" className="font-medium tabular-nums">
+                  {formatMoney(row.amount, row.currency)}
                 </DataTableTd>
                 <DataTableTd className="tabular-nums text-muted-foreground">
-                  {p.date}
+                  {row.currency}
                 </DataTableTd>
-                <DataTableTd className="font-medium">{p.account}</DataTableTd>
-                <DataTableTd className="max-w-[140px] truncate text-muted-foreground">
-                  {p.reference}
+                <DataTableTd className="font-mono text-xs">
+                  {row.invoice_number ?? "—"}
                 </DataTableTd>
-                <DataTableTd className="font-mono text-xs">{p.matchedInvoice}</DataTableTd>
-                <DataTableTd align="right" className="font-medium tabular-nums">
-                  {formatEur(p.amountEur)}
+                <DataTableTd className="max-w-[12rem]">
+                  {row.bank_display ?? (
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {row.bank_account_id}
+                    </span>
+                  )}
                 </DataTableTd>
-                <DataTableTd>
-                  <StatusBadge status={p.status} />
+                <DataTableTd className="max-w-[10rem] truncate text-muted-foreground">
+                  {row.reference ?? "—"}
+                </DataTableTd>
+                <DataTableTd className="max-w-[10rem] truncate">
+                  {row.payer_payee_name ?? "—"}
+                </DataTableTd>
+                <DataTableTd className="max-w-[12rem] truncate text-muted-foreground">
+                  {row.notes?.trim() ? row.notes : "—"}
                 </DataTableTd>
               </tr>
             ))}

@@ -2,52 +2,83 @@ import { PageHeader } from "@/components/shell/page-header"
 import { MonthlyPlChart } from "@/components/reports/monthly-pl-chart"
 import { SectionCard } from "@/components/shell/section-card"
 import { StatCard } from "@/components/dashboard/stat-card"
+import { getMonthlyProfitLossReport } from "@/lib/data/reports"
+import { formatCompactEur, formatEur, formatInr } from "@/lib/format"
 import {
-  mockEstimatedProfitEur,
-  mockMonthlyExpensesEur,
-  mockMonthlyRevenueEur,
-} from "@/data/mock/figures"
-import { mockMonthlyPl } from "@/data/mock/tables"
-import { formatCompactEur, formatEur } from "@/lib/format"
-import { ArrowRightLeft, PiggyBank, TrendingUp } from "lucide-react"
+  ArrowRightLeft,
+  CalendarRange,
+  CreditCard,
+  IndianRupee,
+  PiggyBank,
+  TrendingUp,
+} from "lucide-react"
 
-export default function ReportsPage() {
-  const last = mockMonthlyPl[mockMonthlyPl.length - 1]
+export const dynamic = "force-dynamic"
+
+export default async function ReportsPage() {
+  const report = await getMonthlyProfitLossReport()
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Reports"
-        description="High-level P&L view — mock monthly totals below; chart uses the same static series."
+        description="Monthly revenue vs expenses from snapshots (or mock series when offline)."
       />
 
+      <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+        Using database values when configured; fallback defaults are shown in
+        local mock mode.{" "}
+        <span className="text-foreground/80">
+          Source:{" "}
+          {report.source === "database"
+            ? "monthly_snapshots"
+            : "mock monthly P&L (tables)"}
+          .
+        </span>
+      </p>
+
       <section
-        className="grid gap-4 sm:grid-cols-3"
-        aria-label="Report highlights"
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        aria-label="Report totals"
       >
         <StatCard
-          title="Revenue (May, mock)"
-          value={formatCompactEur(mockMonthlyRevenueEur)}
+          title="Total revenue (series)"
+          value={formatCompactEur(report.totalRevenueEur)}
           icon={TrendingUp}
         />
         <StatCard
-          title="Expenses (May, mock)"
-          value={formatEur(mockMonthlyExpensesEur)}
+          title="Total expenses (series)"
+          value={formatEur(report.totalExpensesEur)}
           icon={PiggyBank}
         />
         <StatCard
-          title="Operating margin (est.)"
-          value={formatCompactEur(mockEstimatedProfitEur)}
-          hint="Before tax"
+          title="Total P&L (series)"
+          value={formatCompactEur(report.totalProfitLossEur)}
+          hint="Sum of monthly profit/loss"
           icon={ArrowRightLeft}
+        />
+        <StatCard
+          title="Total salary (INR, series)"
+          value={formatInr(report.totalSalaryInr)}
+          icon={IndianRupee}
+        />
+        <StatCard
+          title="Total EMI (INR, series)"
+          value={formatInr(report.totalEmiInr)}
+          icon={CreditCard}
+        />
+        <StatCard
+          title="Latest month"
+          value={report.latestMonthLabel}
+          icon={CalendarRange}
         />
       </section>
 
       <SectionCard
         title="Revenue vs expenses"
-        description={`Trailing months through ${last.month} — values in EUR (mock).`}
+        description={`Trailing months through ${report.latestMonthLabel} — values in EUR.`}
       >
-        <MonthlyPlChart />
+        <MonthlyPlChart data={report.series} />
       </SectionCard>
     </div>
   )
