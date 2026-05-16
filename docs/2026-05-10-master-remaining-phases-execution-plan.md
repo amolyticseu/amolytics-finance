@@ -1,36 +1,50 @@
 # Master Remaining Phases Execution Plan — Amolytics Finance
 
 Date: 2026-05-10  
-Status: Master plan — Phase 2 Task 9 QC passed; remaining read-only work is Dashboard + Reports
+Status: Master plan — Phase 2 **not complete**; Tasks 13–18 static QC passed, functional CRUD QC + Task 19 regression **pending**
 
 ## Current State Summary
 
 Summarize current project status:
 
 - **Phase 1** completed and QC passed (UI shell, mock pages, dashboard/reports placeholders, Antigravity QC per project sign-off).
-- **Phase 2 Tasks 1–9** completed with paired implementation + QC docs under `docs/` (through Supabase foundation, Settings, Team, Clients + Bank Accounts shared layers, Invoices, Payments, Salaries, Expenses, **Tasks / Compliance**).
-- **Phase 2 Task 9** — read-only **Tasks / Compliance**: **PASSED** Antigravity QC. Implementation: `docs/2026-05-10-phase-2-task-9-readonly-tasks-compliance.md`. QC: `docs/2026-05-10-phase-2-task-9-readonly-tasks-compliance-qc.md`. `/tasks` is read-only Supabase-backed with fallback mode.
-- **Current read-only Supabase-backed modules** (pages and/or `src/lib/data`):
-  - **Settings** — FX (`exchange_rates`) plus embedded clients/bank accounts on the settings page
-  - **Team** — `team_members`
-  - **Clients** — shared `clients` layer
-  - **Bank Accounts** — shared `bank_accounts` layer
-  - **Invoices** — `invoices` + `clients`
-  - **Payments** — `payments` + `invoices` + `bank_accounts`
-  - **Salaries** — `salary_payments` + `team_members` + `bank_accounts`
-  - **Expenses** — `expenses` + `clients` + `bank_accounts`
-  - **Tasks** — `tasks` (no joins; no `deleted_at` on table)
-- **Still mock-based (only remaining main nav pages)**:
-  - **Dashboard** (`src/app/(app)/dashboard/page.tsx`)
-  - **Reports** (`src/app/(app)/reports/page.tsx`)
-- **Data layer files** (`src/lib/data/`): `settings.ts`, `team.ts`, `clients.ts`, `bank-accounts.ts`, `invoices.ts`, `payments.ts`, `salaries.ts`, `expenses.ts`, `tasks.ts`.
-- **Schema / seed** (`supabase/schema.sql`, `supabase/seed.sql`): core tables including `monthly_snapshots` (not yet consumed by Reports UI).
-- **Not in codebase yet**:
-  - CRUD forms / mutations for money modules
+- **Phase 2 Tasks 1–12** — implemented and **QC passed** (read-only modules, Dashboard real summary, Reports monthly P&L, CRUD foundation). Paired docs under `docs/2026-05-10-phase-2-*`.
+- **Phase 2 Tasks 13–18** — **implemented** (Cursor); **static QC passed** (lint/build/code review); **functional CRUD QC** in progress:
+  - Task 13 — Clients + Bank Accounts CRUD — **fallback functional QC passed**; **Supabase CRUD QC blocked** (env not configured) (`/settings/clients`, `/settings/bank-accounts`)
+  - Task 14 — Invoices CRUD — **fallback functional QC passed**; **Supabase CRUD QC pending**
+  - Task 15 — Payments CRUD — **fallback functional QC passed**; **Supabase CRUD QC pending**
+  - Task 16 — Team + Salaries CRUD — **fallback functional QC passed** (nav regression reverted); **Supabase CRUD QC pending**
+  - Task 17 — Expenses CRUD
+  - Task 18 — Tasks / Compliance CRUD
+- **Phase 2 Task 19** — Final regression QC — **Pending** (must not pass until Tasks 13–18 **functional** QC is complete). Doc: `docs/2026-05-10-phase-2-task-19-final-regression-qc.md`.
+- **QC correction (2026-05-16):** A prior Antigravity run marked Tasks 13–19 as Pass after lint/build/static review only. Documentation was corrected: static ≠ full module pass; Phase 2 remains **not PASSED**.
+- **Supabase-backed modules** (read + CRUD where implemented):
+  - **Settings** — FX (`exchange_rates`); clients/bank accounts via settings CRUD routes
+  - **Team** — `team_members` (read + CRUD)
+  - **Clients / Bank Accounts** — shared layers + settings CRUD
+  - **Invoices, Payments, Salaries, Expenses, Tasks** — list/read with fallback + CRUD routes
+  - **Dashboard** — aggregates from invoices, expenses, salaries, tasks, exchange rates (read-only)
+  - **Reports** — `monthly_snapshots` with fallback derived P&L (read-only)
+- **Data layer** (`src/lib/data/`): `settings.ts`, `team.ts`, `clients.ts`, `bank-accounts.ts`, `invoices.ts`, `payments.ts`, `salaries.ts`, `expenses.ts`, `tasks.ts`, `dashboard.ts`, `reports.ts`.
+- **Server actions** (`src/lib/actions/`): `clients.ts`, `bank-accounts.ts`, `invoices.ts`, `payments.ts`, `team-members.ts`, `salary-payments.ts`, `expenses.ts`, `tasks.ts`.
+- **Schema / seed** (`supabase/schema.sql`, `supabase/seed.sql`): unchanged in Task 19 doc pass; `tasks` has no `deleted_at` (Task 18 uses hard delete).
+- **Not in codebase yet** (Phase 3+):
   - Auth/login UI and protected routes (RLS deferred per schema comments)
   - PDF generation
   - Bank CSV import
+  - Recurring expense automation, task reminders/notifications
   - AI features
+
+### Phase 2 completion gate
+
+**Phase 2 must not be marked PASSED** until:
+
+1. **Functional CRUD QC** passes for **Tasks 13–18** (browser + Supabase; not lint/build alone), and  
+2. **Task 19** final regression QC passes end-to-end (`docs/2026-05-10-phase-2-task-19-final-regression-qc.md`).
+
+Static QC (lint/build/code review) for Tasks 13–18 is **Passed** as of 2026-05-16; that alone does **not** close Phase 2.
+
+Only then start Phase 3.
 
 ## Execution Rule
 
@@ -53,25 +67,17 @@ List remaining work count:
 
 ### Phase 2 Remaining
 
-- Task 10 Dashboard real summary data  
-- Task 10 QC  
-- Task 11 Reports real monthly P&L  
-- Task 11 QC  
-- Task 12 CRUD foundation pattern  
-- Task 12 QC  
-- Task 13 Clients + Bank Accounts CRUD  
-- Task 13 QC  
-- Task 14 Invoices CRUD  
-- Task 14 QC  
-- Task 15 Payments CRUD  
-- Task 15 QC  
-- Task 16 Team + Salaries CRUD  
-- Task 16 QC  
-- Task 17 Expenses CRUD  
-- Task 17 QC  
-- Task 18 Tasks / Compliance CRUD  
-- Task 18 QC  
-- Task 19 Final Phase 2 regression QC  
+| Item | Static QC | Fallback functional QC | Supabase functional QC | Notes |
+|------|-------------|------------------------|------------------------|--------|
+| Tasks 1–12 | Passed | Passed | Passed | Complete |
+| Task 13 Clients + Bank Accounts CRUD | **Passed** | **Passed** | **Blocked** — env not configured | Pending — configure `.env.local` and re-run Supabase QC |
+| Task 14 Invoices CRUD | **Passed** | **Passed** | **Pending** | Partial pass — Supabase CRUD not tested |
+| Task 15 Payments CRUD | **Passed** | **Passed** | **Pending** | Partial pass — Supabase CRUD not tested |
+| Task 16 Team + Salaries CRUD | **Passed** | **Passed** | **Pending** | Partial pass — Supabase CRUD not tested; Expenses nav restored after QC |
+| Task 17 Expenses CRUD | **Passed** | **Pending** | **Pending** | Implemented |
+| Task 18 Tasks / Compliance CRUD | **Passed** | **Pending** | **Pending** | Implemented |
+| Task 19 Final regression QC | **Passed** (lint/build only) | **Pending** | **Pending** | Blocked until Tasks 13–18 Supabase functional QC |
+| **Phase 2 overall** | — | — | **Not PASSED** | Do not start Phase 3 |
 
 ### Phase 3 Remaining
 
@@ -115,11 +121,13 @@ Result:
 
 - **PASSED.** `/tasks` confirmed for fallback, UI, scope, build, lint, and secrets checks (see `docs/2026-05-10-phase-2-task-9-readonly-tasks-compliance-qc.md`).
 
-### Phase 2 Task 10 — Dashboard Real Summary Data
+### Phase 2 Task 10 — Dashboard Real Summary Data *(implemented — QC passed)*
 
 Goal:
 
 Replace dashboard mock summary cards with Supabase-backed summary data and fallback mode.
+
+Docs: `docs/2026-05-10-phase-2-task-10-dashboard-real-summary.md`, `docs/2026-05-10-phase-2-task-10-dashboard-real-summary-qc.md`.
 
 Inputs:
 
@@ -149,11 +157,13 @@ Rules:
 - Avoid double-counting invoices and payments  
 - Keep conservative summary logic documented  
 
-### Phase 2 Task 11 — Reports Real Monthly P&L
+### Phase 2 Task 11 — Reports Real Monthly P&L *(implemented — QC passed)*
 
 Goal:
 
 Connect Reports to real data or `monthly_snapshots`.
+
+Docs: `docs/2026-05-10-phase-2-task-11-reports-real-monthly-pl.md`, `docs/2026-05-10-phase-2-task-11-reports-real-monthly-pl-qc.md`.
 
 Approach:
 
@@ -171,11 +181,13 @@ Show:
 - EMI total  
 - EUR/INR conversion assumptions  
 
-### Phase 2 Task 12 — CRUD Foundation Pattern
+### Phase 2 Task 12 — CRUD Foundation Pattern *(implemented — QC passed)*
 
 Goal:
 
 Create the reusable CRUD foundation before module-specific CRUD.
+
+Docs: `docs/2026-05-10-phase-2-task-12-crud-foundation-pattern.md`, `docs/2026-05-10-phase-2-task-12-crud-foundation-pattern-qc.md`.
 
 Include:
 
@@ -194,11 +206,13 @@ Recommended decision:
 
 - Use full-page or section-based forms first, not complex modals.
 
-### Phase 2 Task 13 — Clients + Bank Accounts CRUD
+### Phase 2 Task 13 — Clients + Bank Accounts CRUD *(pending — fallback QC passed; Supabase CRUD QC blocked — env not configured)*
 
 Goal:
 
 Add create/edit/deactivate flows for clients and bank accounts.
+
+Docs: `docs/2026-05-10-phase-2-task-13-clients-bank-accounts-crud.md`, `docs/2026-05-10-phase-2-task-13-clients-bank-accounts-crud-qc.md`.
 
 Rules:
 
@@ -208,11 +222,13 @@ Rules:
 - Support active/inactive  
 - Soft delete/deactivate  
 
-### Phase 2 Task 14 — Invoices CRUD
+### Phase 2 Task 14 — Invoices CRUD *(partial pass — fallback functional QC passed; Supabase CRUD QC pending)*
 
 Goal:
 
 Add manual invoice create/edit/cancel flows.
+
+Docs: `docs/2026-05-10-phase-2-task-14-invoices-crud.md`, `docs/2026-05-10-phase-2-task-14-invoices-crud-qc.md`.
 
 Include:
 
@@ -233,11 +249,13 @@ Not included:
 
 - PDF generation, which belongs to Phase 3  
 
-### Phase 2 Task 15 — Payments CRUD
+### Phase 2 Task 15 — Payments CRUD *(partial pass — fallback functional QC passed; Supabase CRUD QC pending)*
 
 Goal:
 
 Add manual incoming/outgoing payment tracking.
+
+Docs: `docs/2026-05-10-phase-2-task-15-payments-crud.md`, `docs/2026-05-10-phase-2-task-15-payments-crud-qc.md`.
 
 Include:
 
@@ -256,11 +274,13 @@ Rules:
 - Payment should optionally link invoice, salary payment, or expense  
 - Do not force all payments to invoices  
 
-### Phase 2 Task 16 — Team + Salaries CRUD
+### Phase 2 Task 16 — Team + Salaries CRUD *(partial pass — fallback functional QC passed; Supabase CRUD QC pending)*
 
 Goal:
 
 Add CRUD for team members and salary payments.
+
+Docs: `docs/2026-05-10-phase-2-task-16-team-salaries-crud.md`, `docs/2026-05-10-phase-2-task-16-team-salaries-crud-qc.md`.
 
 Include:
 
@@ -277,11 +297,13 @@ Include:
 - Transaction reference  
 - Notes  
 
-### Phase 2 Task 17 — Expenses CRUD
+### Phase 2 Task 17 — Expenses CRUD *(implemented — static QC passed; functional QC pending)*
 
 Goal:
 
 Add manual expense tracking.
+
+Docs: `docs/2026-05-10-phase-2-task-17-expenses-crud.md`, `docs/2026-05-10-phase-2-task-17-expenses-crud-qc.md`.
 
 Include:
 
@@ -298,11 +320,13 @@ Include:
 - Payment reference  
 - Notes  
 
-### Phase 2 Task 18 — Tasks / Compliance CRUD
+### Phase 2 Task 18 — Tasks / Compliance CRUD *(implemented — static QC passed; functional QC pending)*
 
 Goal:
 
 Add manual task management.
+
+Docs: `docs/2026-05-10-phase-2-task-18-tasks-compliance-crud.md`, `docs/2026-05-10-phase-2-task-18-tasks-compliance-crud-qc.md`.
 
 Include:
 
@@ -324,24 +348,26 @@ Actions:
 - Mark blocked  
 - Reopen  
 
-### Phase 2 Task 19 — Final Phase 2 Regression QC
+### Phase 2 Task 19 — Final Phase 2 Regression QC *(static checks partial; final regression pending)*
 
 Goal:
 
-Full Phase 2 pass/fail checkpoint.
+Full Phase 2 pass/fail checkpoint after Tasks 13–18 module QC.
+
+Doc: `docs/2026-05-10-phase-2-task-19-final-regression-qc.md`.
 
 Check:
 
-- All routes  
-- All read-only modules  
-- All CRUD modules  
-- Build/lint  
-- Fallback mode  
-- Supabase mode  
+- All main and CRUD routes  
+- All read-only modules (Tasks 1–11) still stable  
+- All CRUD modules (Tasks 13–18)  
+- Build/lint/tsc  
+- Fallback mode without `.env.local`  
+- Supabase mode with schema/seed  
+- Dashboard and reports regression  
 - Security scan  
 - Docs consistency  
-- No accidental secrets  
-- No broken mobile views  
+- UX/mobile smoke checks  
 
 ## Phase 3 Detailed Execution Plan
 
@@ -532,20 +558,16 @@ Final QC for all AI and strategic features.
 
 ## Recommended Execution Order
 
-Recommend this exact order:
+Recommend this exact order from the current checkpoint:
 
-1. Build Phase 2 Task 10 Dashboard summaries  
-2. QC Task 10  
-3. Build Phase 2 Task 11 Reports  
-4. QC Task 11  
-5. Build CRUD foundation  
-6. QC CRUD foundation  
-7. CRUD modules one by one  
-8. Final Phase 2 regression QC  
-9. Only then start Phase 3  
-10. Only after Phase 3 final QC, start Phase 4  
+1. **Antigravity functional CRUD QC Tasks 13–18** (browser + Supabase; in any sensible order) — static QC already passed  
+2. **Antigravity Task 19** final regression QC (`docs/2026-05-10-phase-2-task-19-final-regression-qc.md`) — only after step 1  
+3. Mark **Phase 2 PASSED** only if step 1 and 2 pass functionally  
+4. Start **Phase 3 Task 1** (PDF invoice generation)  
+5. Continue Phase 3 with QC after each task  
+6. Only after Phase 3 final QC, start Phase 4  
 
-*(Phase 2 Task 9 QC is complete and PASSED.)*
+*(Phase 2 Tasks 1–12 are fully QC-complete. Tasks 13–18: implementation + static QC complete; **functional CRUD QC** and **Task 19 regression** remain.)*
 
 ## What Not To Do
 
@@ -562,17 +584,22 @@ Clearly document:
 
 Recommend continuing with:
 
-**Phase 2 Task 10 — Dashboard Real Summary Data** (next implementation task).
+**Antigravity functional CRUD QC for Phase 2 Tasks 13–18**, then **Task 19 Final Regression QC**.
 
-After Task 10 ships, run **Task 10 Antigravity QC**, then proceed to **Task 11 — Reports**.
+Do not start Phase 3 until Phase 2 is explicitly marked **PASSED** per the completion gate above. **Phase 2 is not complete** as of 2026-05-16 documentation correction.
 
-The project should remain **step-by-step** with Cursor implementation and **Antigravity QC after every module** so regressions, secrets, and scope drift are caught before the next build phase.
+The project should remain **step-by-step** with **Antigravity QC after every module** so regressions, secrets, and scope drift are caught before Phase 3.
 
-## Roadmap Update — Task 9 QC Passed
+## Roadmap Update — QC status correction (Tasks 13–19)
 
-Date: 2026-05-10
+Date: 2026-05-16
 
-- Phase 2 Task 9 Read-only Tasks / Compliance QC passed.
-- `/tasks` is now confirmed as read-only Supabase-backed with fallback mode.
-- Dashboard and Reports remain mock-based.
-- Next task is Phase 2 Task 10 Dashboard Real Summary Data.
+- Phase 2 Tasks 1–12: implemented and **full QC passed**.
+- Phase 2 Tasks 13–18: implemented; **static QC passed** (lint/build/code review); **functional CRUD QC** in progress.
+- **Task 13:** fallback functional QC **passed** (2026-05-16); Supabase CRUD QC **blocked** — `.env.local` lacks valid Supabase credentials; overall **pending**.
+- **Task 14:** fallback functional QC **passed** (2026-05-16, no Supabase env); Supabase invoice create/edit/cancel **not tested** — partial pass only.
+- **Task 15:** fallback functional QC **passed** (2026-05-16, no Supabase env); Supabase payment create/edit/soft-delete **not tested** — partial pass only.
+- **Task 16:** fallback functional QC **passed** (2026-05-16); Antigravity removed Expenses from nav — **restored by Cursor**; read-only Active Status on team edit **kept**; Supabase Team + Salaries CRUD **not tested** — partial pass only.
+- Phase 2 Task 19: **final regression QC pending** — do not pass until Tasks 13–18 Supabase functional QC is done.
+- Prior Antigravity run incorrectly implied full Pass from static checks only; QC docs and this master plan were corrected.
+- **Next action:** Functional browser/Supabase CRUD QC for Tasks 13–18, then Task 19 end-to-end regression. **Phase 2 not PASSED.** No Phase 3 until gate clears.

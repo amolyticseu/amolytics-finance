@@ -1,5 +1,6 @@
 import { CLIENT_LABEL } from "@/data/mock/constants"
 import { mockPayments } from "@/data/mock/tables"
+import { isFallbackEntityId } from "@/lib/server/require-supabase-mutation"
 import { hasSupabaseEnv } from "@/lib/supabase/env"
 import { createClient } from "@/lib/supabase/server"
 import type {
@@ -161,12 +162,129 @@ function fallbackPaymentList(): PaymentListItem[] {
   return sortPaymentList(items)
 }
 
-export async function getPayments(): Promise<{
-  rows: PaymentListItem[]
-  source: PaymentDataSource
-}> {
+export type PaymentFormOption = { id: string; label: string }
+
+export type PaymentFormOptions = {
+  bankAccounts: PaymentFormOption[]
+  invoices: PaymentFormOption[]
+  salaryPayments: PaymentFormOption[]
+  expenses: PaymentFormOption[]
+  canMutate: boolean
+}
+
+export async function getPaymentFormOptions(): Promise<PaymentFormOptions> {
   if (!hasSupabaseEnv()) {
-    return { rows: fallbackPaymentList(), source: "fallback" }
+    return {
+      bankAccounts: [],
+      invoices: [],
+      salaryPayments: [],
+      expenses: [],
+      canMutate: false,
+    }
+  }
+
+  try {
+    const supabase = await createClient()
+    const [banksRes, invRes, salRes, expRes] = await Promise.all([
+      supabase
+        .from("bank_accounts")
+        .select("id, account_name, institution_name")
+        .eq("active", true)
+        .is("deleted_at", null)
+        .order("institution_name", { ascending: true }),
+      supabase
+        .from("invoices")
+        .select("id, invoice_number, year, month, period_code")
+        .is("deleted_at", null)
+        .order("year", { ascending: false })
+        .order("month", { ascending: false }),
+      supabase
+        .from("salary_payments")
+        .select("id, month, year, team_members(name)")
+        .is("deleted_at", null)
+        .order("year", { ascending: false })
+        .order("month", { ascending: false }),
+      supabase
+        .from("expenses")
+        .select("id, name, amount, currency, expense_date")
+        .is("deleted_at", null)
+        .order("expense_date", { ascending: false }),
+    ])
+
+    if (banksRes.error || invRes.error || salRes.error || expRes.error) {
+      return {
+        bankAccounts: [],
+        invoices: [],
+        salaryPayments: [],
+        expenses: [],
+        canMutate: false,
+      }
+    }
+
+    const bankAccounts = (banksRes.data ?? []).map((b) => ({
+      id: String(b.id),
+      label: `${b.institution_name} — ${b.account_name}`,
+    }))
+
+    const invoices = (invRes.data ?? []).map((inv) => {
+      const num = inv.invoice_number?.trim()
+      const period =
+        inv.year != null && inv.month != null
+          ? `${inv.year}-${String(inv.month).padStart(2, "0")}`
+          : null
+      const label = num
+        ? num
+        : [period, inv.period_code].filter(Boolean).join(" · ") || String(inv.id)
+      return { id: String(inv.id), label }
+    })
+
+    const salaryPayments = (salRes.data ?? []).map((raw) => {
+      const s = raw as {
+        id: string
+        month: number
+        year: number
+        team_members: unknown
+      }
+      const tm = embedOne<{ name: string }>(s.team_members)
+      const name = tm?.name ?? "Salary"
+      const mm = String(s.month).padStart(2, "0")
+      return {
+        id: String(s.id),
+        label: `${name} — ${s.year}-${mm}`,
+      }
+    })
+
+    const expenses = (expRes.data ?? []).map((e) => ({
+      id: String(e.id),
+      label: `${e.name} — ${e.amount} ${e.currency} (${e.expense_date})`,
+    }))
+
+    return {
+      bankAccounts,
+      invoices,
+      salaryPayments,
+      expenses,
+      canMutate: true,
+    }
+  } catch {
+    return {
+      bankAccounts: [],
+      invoices: [],
+      salaryPayments: [],
+      expenses: [],
+      canMutate: false,
+    }
+  }
+}
+
+export async function getPaymentById(id: string): Promise<{
+  row: PaymentListItem | null
+  source: PaymentDataSource
+  canMutate: boolean
+}> {
+  if (isFallbackEntityId(id) || !hasSupabaseEnv()) {
+    const fallback = fallbackPaymentList().find((p) => p.id === id) ?? null
+    return { row: fallback, source: "fallback", canMutate: false }
   }
 
   try {
@@ -176,26 +294,72 @@ export async function getPayments(): Promise<{
       .select(
         "*, invoices(invoice_number), bank_accounts(account_name, institution_name)"
       )
-      .is("deleted_at", null)
+      .eq("id", id)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) warnFallback("getPaymentById", error)
+      return { row: null, source: "fallback", canMutate: false }
+    }
+
+    return {
+      row: joinRowToListItem(data as PaymentJoinRow),
+      source: "database",
+      canMutate: true,
+    }
+  } catch (e) {
+    warnFallback("getPaymentById", e)
+    return { row: null, source: "fallback", canMutate: false }
+  }
+}
+
+export async function getPayments(options?: {
+  includeDeleted?: boolean
+}): Promise<{
+  rows: PaymentListItem[]
+  source: PaymentDataSource
+  canMutate: boolean
+}> {
+  const includeDeleted = options?.includeDeleted ?? false
+  const canMutate = hasSupabaseEnv()
+
+  if (!hasSupabaseEnv()) {
+    return { rows: fallbackPaymentList(), source: "fallback", canMutate: false }
+  }
+
+  try {
+    const supabase = await createClient()
+    let query = supabase
+      .from("payments")
+      .select(
+        "*, invoices(invoice_number), bank_accounts(account_name, institution_name)"
+      )
       .order("payment_date", { ascending: false })
       .order("created_at", { ascending: false })
 
+    if (!includeDeleted) {
+      query = query.is("deleted_at", null)
+    }
+
+    const { data, error } = await query
+
     if (error) {
       warnFallback("getPayments", error)
-      return { rows: fallbackPaymentList(), source: "fallback" }
+      return { rows: fallbackPaymentList(), source: "fallback", canMutate: false }
     }
 
     const rawRows = (data ?? []) as PaymentJoinRow[]
     if (rawRows.length === 0) {
-      return { rows: fallbackPaymentList(), source: "fallback" }
+      return { rows: fallbackPaymentList(), source: "fallback", canMutate }
     }
 
     return {
       rows: sortPaymentList(rawRows.map(joinRowToListItem)),
       source: "database",
+      canMutate,
     }
   } catch (e) {
     warnFallback("getPayments", e)
-    return { rows: fallbackPaymentList(), source: "fallback" }
+    return { rows: fallbackPaymentList(), source: "fallback", canMutate: false }
   }
 }

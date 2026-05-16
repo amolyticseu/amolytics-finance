@@ -1,6 +1,10 @@
 import type { ReactNode } from "react"
 
+import { DataSourceNote } from "@/components/shell/data-source-note"
+import { PageAlert } from "@/components/shell/page-alert"
 import { PageHeader } from "@/components/shell/page-header"
+import { EmptyTableState } from "@/components/shell/empty-table-state"
+import { dataTableRowClassName } from "@/components/shell/data-table"
 import { SectionCard } from "@/components/shell/section-card"
 import {
   DataTable,
@@ -16,8 +20,13 @@ import {
   WORKSPACE_RECOVERY_PENDING_EUR,
   inrToEur,
 } from "@/data/mock/constants"
+import Link from "next/link"
+
+import { buttonVariants } from "@/components/ui/button"
 import { getExpenses } from "@/lib/data/expenses"
 import { formatEur, formatInr } from "@/lib/format"
+import { hasSupabaseEnv } from "@/lib/supabase/env"
+import { cn } from "@/lib/utils"
 import type { ExpenseCategoryDb } from "@/types"
 import type { ExpenseListItem } from "@/lib/supabase/types"
 
@@ -66,36 +75,69 @@ function yesNo(v: boolean): string {
   return v ? "Yes" : "No"
 }
 
-export default async function ExpensesPage() {
-  const { rows, source } = await getExpenses()
+type ExpensesPageProps = {
+  searchParams: Promise<{ showRemoved?: string; cancelled?: string }>
+}
+
+export default async function ExpensesPage({ searchParams }: ExpensesPageProps) {
+  const params = await searchParams
+  const includeRemoved = params.showRemoved === "1"
+  const { rows, source, canMutate } = await getExpenses({ includeRemoved })
+  const supabaseConfigured = hasSupabaseEnv()
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Expenses"
         description={`Malta fixed ~${formatEur(MALTA_FIXED_MONTHLY_EUR)}/mo · India EMI total ₹${MONTHLY_EMI_INR_TOTAL.toLocaleString("en-IN")} (~${formatEur(emiEur)}) · workspace recovery pending ${formatEur(WORKSPACE_RECOVERY_PENDING_EUR)}.`}
+        actions={
+          canMutate ? (
+            <Link
+              href="/expenses/new"
+              className={cn(buttonVariants({ size: "sm" }))}
+            >
+              Add expense
+            </Link>
+          ) : null
+        }
       />
 
-      <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-        Using database values when configured; fallback defaults are shown in
-        local mock mode.{" "}
-        <span className="text-foreground/80">
-          Source:{" "}
-          {source === "database"
+      {params.cancelled === "1" ? (
+        <PageAlert>Expense cancelled.</PageAlert>
+      ) : null}
+
+      <DataSourceNote
+        supabaseConfigured={supabaseConfigured}
+        source={source}
+        sourceLabel={
+          source === "database"
             ? "expenses (+ clients & bank_accounts joins)"
-            : "built-in seed-aligned mock lines"}
-          .
-        </span>
-      </p>
+            : "built-in seed-aligned mock lines"
+        }
+        canMutate={canMutate}
+      />
 
       <SectionCard
         title="Monthly cost lines"
         description={
-          source === "database"
-            ? "Rows from Supabase (read-only). Amounts use each row’s currency."
-            : "Categorized mock rows aligned with seed examples — subscriptions and compliance can be added in the database."
+          includeRemoved
+            ? "Including cancelled / soft-deleted rows."
+            : source === "database"
+              ? "Active expenses from Supabase. Manual entry only."
+              : "Categorized mock rows for local development."
+        }
+        action={
+          <Link
+            href={includeRemoved ? "/expenses" : "/expenses?showRemoved=1"}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            {includeRemoved ? "Hide removed" : "Show removed"}
+          </Link>
         }
       >
+        {rows.length === 0 ? (
+          <EmptyTableState message="No expenses to show. Add one when Supabase is connected, or check Show removed." />
+        ) : (
         <DataTable className="min-w-[56rem]">
           <DataTableHeader>
             <tr>
@@ -111,14 +153,12 @@ export default async function ExpensesPage() {
               <DataTableTh>Bank / account</DataTableTh>
               <DataTableTh>Payment ref</DataTableTh>
               <DataTableTh>Notes</DataTableTh>
+              <DataTableTh align="right">Actions</DataTableTh>
             </tr>
           </DataTableHeader>
           <DataTableBody>
             {rows.map((row) => (
-              <tr
-                key={row.id}
-                className="border-b border-border/40 transition-colors hover:bg-muted/15 last:border-b-0"
-              >
+              <tr key={row.id} className={dataTableRowClassName}>
                 <DataTableTd>{dateCell(row)}</DataTableTd>
                 <DataTableTd className="font-medium">
                   {formatCategoryLabel(row.category)}
@@ -157,10 +197,19 @@ export default async function ExpensesPage() {
                 <DataTableTd className="max-w-[14rem] truncate text-muted-foreground">
                   {row.notes?.trim() ? row.notes : "—"}
                 </DataTableTd>
+                <DataTableTd align="right">
+                  <Link
+                    href={`/expenses/${row.id}/edit`}
+                    className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                  >
+                    {canMutate ? "Edit" : "View"}
+                  </Link>
+                </DataTableTd>
               </tr>
             ))}
           </DataTableBody>
         </DataTable>
+        )}
       </SectionCard>
     </div>
   )

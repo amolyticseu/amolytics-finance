@@ -1,4 +1,5 @@
 import { mockTeamFallbackMembers } from "@/data/mock/tables"
+import { isFallbackEntityId } from "@/lib/server/require-supabase-mutation"
 import { hasSupabaseEnv } from "@/lib/supabase/env"
 import { createClient } from "@/lib/supabase/server"
 import type {
@@ -197,12 +198,63 @@ function fallbackSalaryPayments(): SalaryPaymentListItem[] {
   return sortSalaryList(items)
 }
 
-export async function getSalaryPayments(): Promise<{
-  rows: SalaryPaymentListItem[]
-  source: SalaryDataSource
-}> {
+export type SalaryFormOption = { id: string; label: string }
+
+export type SalaryFormOptions = {
+  teamMembers: SalaryFormOption[]
+  bankAccounts: SalaryFormOption[]
+  canMutate: boolean
+}
+
+export async function getSalaryFormOptions(): Promise<SalaryFormOptions> {
   if (!hasSupabaseEnv()) {
-    return { rows: fallbackSalaryPayments(), source: "fallback" }
+    return { teamMembers: [], bankAccounts: [], canMutate: false }
+  }
+
+  try {
+    const supabase = await createClient()
+    const [membersRes, banksRes] = await Promise.all([
+      supabase
+        .from("team_members")
+        .select("id, name, role")
+        .eq("active", true)
+        .order("name", { ascending: true }),
+      supabase
+        .from("bank_accounts")
+        .select("id, account_name, institution_name")
+        .eq("active", true)
+        .is("deleted_at", null)
+        .order("institution_name", { ascending: true }),
+    ])
+
+    if (membersRes.error || banksRes.error) {
+      return { teamMembers: [], bankAccounts: [], canMutate: false }
+    }
+
+    const teamMembers = (membersRes.data ?? []).map((m) => ({
+      id: String(m.id),
+      label: m.role ? `${m.name} — ${m.role}` : String(m.name),
+    }))
+
+    const bankAccounts = (banksRes.data ?? []).map((b) => ({
+      id: String(b.id),
+      label: `${b.institution_name} — ${b.account_name}`,
+    }))
+
+    return { teamMembers, bankAccounts, canMutate: true }
+  } catch {
+    return { teamMembers: [], bankAccounts: [], canMutate: false }
+  }
+}
+
+export async function getSalaryPaymentById(id: string): Promise<{
+  row: SalaryPaymentListItem | null
+  source: SalaryDataSource
+  canMutate: boolean
+}> {
+  if (isFallbackEntityId(id) || !hasSupabaseEnv()) {
+    const fallback = fallbackSalaryPayments().find((s) => s.id === id) ?? null
+    return { row: fallback, source: "fallback", canMutate: false }
   }
 
   try {
@@ -212,26 +264,72 @@ export async function getSalaryPayments(): Promise<{
       .select(
         "*, team_members(name, role), bank_accounts(account_name, institution_name)"
       )
-      .is("deleted_at", null)
+      .eq("id", id)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) warnFallback("getSalaryPaymentById", error)
+      return { row: null, source: "fallback", canMutate: false }
+    }
+
+    return {
+      row: joinRowToListItem(data as SalaryJoinRow),
+      source: "database",
+      canMutate: true,
+    }
+  } catch (e) {
+    warnFallback("getSalaryPaymentById", e)
+    return { row: null, source: "fallback", canMutate: false }
+  }
+}
+
+export async function getSalaryPayments(options?: {
+  includeDeleted?: boolean
+}): Promise<{
+  rows: SalaryPaymentListItem[]
+  source: SalaryDataSource
+  canMutate: boolean
+}> {
+  const includeDeleted = options?.includeDeleted ?? false
+  const canMutate = hasSupabaseEnv()
+
+  if (!hasSupabaseEnv()) {
+    return { rows: fallbackSalaryPayments(), source: "fallback", canMutate: false }
+  }
+
+  try {
+    const supabase = await createClient()
+    let query = supabase
+      .from("salary_payments")
+      .select(
+        "*, team_members(name, role), bank_accounts(account_name, institution_name)"
+      )
       .order("year", { ascending: false })
       .order("month", { ascending: false })
 
+    if (!includeDeleted) {
+      query = query.is("deleted_at", null)
+    }
+
+    const { data, error } = await query
+
     if (error) {
       warnFallback("getSalaryPayments", error)
-      return { rows: fallbackSalaryPayments(), source: "fallback" }
+      return { rows: fallbackSalaryPayments(), source: "fallback", canMutate: false }
     }
 
     const rawRows = (data ?? []) as SalaryJoinRow[]
     if (rawRows.length === 0) {
-      return { rows: fallbackSalaryPayments(), source: "fallback" }
+      return { rows: fallbackSalaryPayments(), source: "fallback", canMutate }
     }
 
     return {
       rows: sortSalaryList(rawRows.map(joinRowToListItem)),
       source: "database",
+      canMutate,
     }
   } catch (e) {
     warnFallback("getSalaryPayments", e)
-    return { rows: fallbackSalaryPayments(), source: "fallback" }
+    return { rows: fallbackSalaryPayments(), source: "fallback", canMutate: false }
   }
 }

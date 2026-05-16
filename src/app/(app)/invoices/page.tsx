@@ -1,5 +1,11 @@
+import Link from "next/link"
+
+import { DataSourceNote } from "@/components/shell/data-source-note"
+import { PageAlert } from "@/components/shell/page-alert"
 import { PageHeader } from "@/components/shell/page-header"
 import { SectionCard } from "@/components/shell/section-card"
+import { EmptyTableState } from "@/components/shell/empty-table-state"
+import { dataTableRowClassName } from "@/components/shell/data-table"
 import {
   DataTable,
   DataTableBody,
@@ -8,10 +14,13 @@ import {
   DataTableTh,
 } from "@/components/shell/data-table"
 import { StatusBadge } from "@/components/shell/status-badge"
+import { buttonVariants } from "@/components/ui/button"
 import { CLIENT_LABEL } from "@/data/mock/constants"
 import { getInvoices } from "@/lib/data/invoices"
 import { formatEur } from "@/lib/format"
+import { hasSupabaseEnv } from "@/lib/supabase/env"
 import type { InvoiceListItem } from "@/lib/supabase/types"
+import { cn } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 
@@ -56,37 +65,74 @@ function paymentRefDisplay(row: InvoiceListItem): string {
   return "—"
 }
 
-export default async function InvoicesPage() {
-  const { rows, source } = await getInvoices()
+type InvoicesPageProps = {
+  searchParams: Promise<{ showCancelled?: string; cancelled?: string }>
+}
+
+export default async function InvoicesPage({ searchParams }: InvoicesPageProps) {
+  const params = await searchParams
+  const includeCancelled = params.showCancelled === "1"
+  const { rows, source, canMutate } = await getInvoices({ includeCancelled })
+  const supabaseConfigured = hasSupabaseEnv()
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Invoices"
         description={`BMF client (${CLIENT_LABEL}) · third-of-month periods T01–T03 · €15/hr reference.`}
+        actions={
+          canMutate ? (
+            <Link
+              href="/invoices/new"
+              className={cn(buttonVariants({ size: "sm" }))}
+            >
+              Add invoice
+            </Link>
+          ) : null
+        }
       />
 
-      <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-        Using database values when configured; fallback defaults are shown in
-        local mock mode.{" "}
-        <span className="text-foreground/80">
-          Source:{" "}
-          {source === "database"
+      {params.cancelled === "1" ? (
+        <PageAlert>Invoice cancelled.</PageAlert>
+      ) : null}
+
+      <DataSourceNote
+        supabaseConfigured={supabaseConfigured}
+        source={source}
+        sourceLabel={
+          source === "database"
             ? "invoices (+ clients join)"
-            : "built-in mock register"}
-          .
-        </span>
-      </p>
+            : "built-in mock register"
+        }
+        canMutate={canMutate}
+      />
 
       <SectionCard
         title="Invoice register"
         description={
-          source === "database"
-            ? "Rows from Supabase (read-only). Amounts use each row’s currency."
-            : "Mock line items for local development. Amounts in EUR."
+          includeCancelled
+            ? "Including cancelled / soft-deleted rows."
+            : source === "database"
+              ? "Active invoices from Supabase. Amounts use each row’s currency."
+              : "Mock line items for local development. Amounts in EUR."
+        }
+        action={
+          <Link
+            href={
+              includeCancelled
+                ? "/invoices"
+                : "/invoices?showCancelled=1"
+            }
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            {includeCancelled ? "Hide cancelled" : "Show cancelled"}
+          </Link>
         }
       >
-        <DataTable className="min-w-[64rem]">
+        {rows.length === 0 ? (
+          <EmptyTableState message="No invoices to show. Add one when Supabase is connected, or check Show cancelled." />
+        ) : (
+        <DataTable className="min-w-[68rem]">
           <DataTableHeader>
             <tr>
               <DataTableTh>Invoice #</DataTableTh>
@@ -100,14 +146,12 @@ export default async function InvoicesPage() {
               <DataTableTh>Sent</DataTableTh>
               <DataTableTh>Paid</DataTableTh>
               <DataTableTh>Payment ref</DataTableTh>
+              <DataTableTh align="right">Actions</DataTableTh>
             </tr>
           </DataTableHeader>
           <DataTableBody>
             {rows.map((row) => (
-              <tr
-                key={row.id}
-                className="border-b border-border/40 transition-colors hover:bg-muted/15 last:border-b-0"
-              >
+              <tr key={row.id} className={dataTableRowClassName}>
                 <DataTableTd className="font-mono text-xs text-muted-foreground">
                   {invoiceNumberDisplay(row)}
                 </DataTableTd>
@@ -150,10 +194,19 @@ export default async function InvoicesPage() {
                 <DataTableTd className="max-w-[10rem] truncate text-muted-foreground">
                   {paymentRefDisplay(row)}
                 </DataTableTd>
+                <DataTableTd align="right">
+                  <Link
+                    href={`/invoices/${row.id}/edit`}
+                    className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                  >
+                    {canMutate ? "Edit" : "View"}
+                  </Link>
+                </DataTableTd>
               </tr>
             ))}
           </DataTableBody>
         </DataTable>
+        )}
       </SectionCard>
     </div>
   )

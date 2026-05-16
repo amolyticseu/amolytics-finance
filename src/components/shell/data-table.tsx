@@ -43,7 +43,7 @@ export function DataTableRow({
   return (
     <tr
       className={cn(
-        "transition-colors hover:bg-muted/20 [&>td]:py-3 [&>th]:py-3",
+        "border-b border-border/40 transition-colors hover:bg-muted/15 last:border-b-0",
         className
       )}
     >
@@ -51,6 +51,9 @@ export function DataTableRow({
     </tr>
   )
 }
+
+export const dataTableRowClassName =
+  "border-b border-border/40 transition-colors hover:bg-muted/15 last:border-b-0"
 
 type Align = "left" | "right"
 

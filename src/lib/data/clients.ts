@@ -2,6 +2,7 @@ import {
   CLIENT_LABEL,
   HOURLY_RATE_EUR,
 } from "@/data/mock/constants"
+import { isFallbackEntityId } from "@/lib/server/require-supabase-mutation"
 import { hasSupabaseEnv } from "@/lib/supabase/env"
 import { createClient } from "@/lib/supabase/server"
 import type { ClientRow } from "@/lib/supabase/types"
@@ -50,6 +51,95 @@ function fallbackClients(): ClientRow[] {
       updated_at: now,
     },
   ]
+}
+
+export type ClientsQueryResult = {
+  rows: ClientRow[]
+  source: ClientDataSource
+  /** False when env missing or reads fell back — CRUD actions must not run. */
+  canMutate: boolean
+}
+
+export async function getClientsForManage(options?: {
+  includeInactive?: boolean
+}): Promise<ClientsQueryResult> {
+  const includeInactive = options?.includeInactive ?? false
+
+  if (!hasSupabaseEnv()) {
+    return {
+      rows: fallbackClients(),
+      source: "fallback",
+      canMutate: false,
+    }
+  }
+
+  try {
+    const supabase = await createClient()
+    let query = supabase.from("clients").select("*").order("name", { ascending: true })
+
+    if (!includeInactive) {
+      query = query.eq("active", true)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      warnFallback("getClientsForManage", error)
+      return {
+        rows: fallbackClients(),
+        source: "fallback",
+        canMutate: false,
+      }
+    }
+
+    const rows = ((data ?? []) as ClientRow[]).map(normalizeClient)
+    return { rows, source: "database", canMutate: true }
+  } catch (e) {
+    warnFallback("getClientsForManage", e)
+    return {
+      rows: fallbackClients(),
+      source: "fallback",
+      canMutate: false,
+    }
+  }
+}
+
+export async function getClientById(id: string): Promise<{
+  row: ClientRow | null
+  source: ClientDataSource
+  canMutate: boolean
+}> {
+  if (isFallbackEntityId(id) || !hasSupabaseEnv()) {
+    const fallback = fallbackClients().find((c) => c.id === id) ?? null
+    return {
+      row: fallback,
+      source: "fallback",
+      canMutate: false,
+    }
+  }
+
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from("clients")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) warnFallback("getClientById", error)
+      return { row: null, source: "fallback", canMutate: false }
+    }
+
+    return {
+      row: normalizeClient(data as ClientRow),
+      source: "database",
+      canMutate: true,
+    }
+  } catch (e) {
+    warnFallback("getClientById", e)
+    return { row: null, source: "fallback", canMutate: false }
+  }
 }
 
 export async function getActiveClients(): Promise<{

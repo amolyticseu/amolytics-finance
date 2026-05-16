@@ -1,4 +1,5 @@
 import { mockTeamFallbackMembers } from "@/data/mock/tables"
+import { isFallbackEntityId } from "@/lib/server/require-supabase-mutation"
 import { hasSupabaseEnv } from "@/lib/supabase/env"
 import { createClient } from "@/lib/supabase/server"
 import type { TeamMemberRow } from "@/lib/supabase/types"
@@ -50,6 +51,90 @@ function fallbackTeamMembers(): TeamMemberRow[] {
     updated_at: now,
   }))
   return rows.sort((a, b) => a.name.localeCompare(b.name, "en"))
+}
+
+export async function getTeamMembersForManage(options?: {
+  includeInactive?: boolean
+}): Promise<{
+  rows: TeamMemberRow[]
+  source: TeamDataSource
+  canMutate: boolean
+}> {
+  const includeInactive = options?.includeInactive ?? false
+
+  if (!hasSupabaseEnv()) {
+    return {
+      rows: fallbackTeamMembers(),
+      source: "fallback",
+      canMutate: false,
+    }
+  }
+
+  try {
+    const supabase = await createClient()
+    let query = supabase.from("team_members").select("*").order("name", {
+      ascending: true,
+    })
+
+    if (!includeInactive) {
+      query = query.eq("active", true)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      warnFallback("getTeamMembersForManage", error)
+      return {
+        rows: fallbackTeamMembers(),
+        source: "fallback",
+        canMutate: false,
+      }
+    }
+
+    const rows = ((data ?? []) as TeamMemberRow[]).map(normalizeTeamMember)
+    return { rows, source: "database", canMutate: true }
+  } catch (e) {
+    warnFallback("getTeamMembersForManage", e)
+    return {
+      rows: fallbackTeamMembers(),
+      source: "fallback",
+      canMutate: false,
+    }
+  }
+}
+
+export async function getTeamMemberById(id: string): Promise<{
+  row: TeamMemberRow | null
+  source: TeamDataSource
+  canMutate: boolean
+}> {
+  if (isFallbackEntityId(id) || !hasSupabaseEnv()) {
+    const fallback = fallbackTeamMembers().find((m) => m.id === id) ?? null
+    return { row: fallback, source: "fallback", canMutate: false }
+  }
+
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from("team_members")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) warnFallback("getTeamMemberById", error)
+      return { row: null, source: "fallback", canMutate: false }
+    }
+
+    return {
+      row: normalizeTeamMember(data as TeamMemberRow),
+      source: "database",
+      canMutate: true,
+    }
+  } catch (e) {
+    warnFallback("getTeamMemberById", e)
+    return { row: null, source: "fallback", canMutate: false }
+  }
 }
 
 export async function getActiveTeamMembers(): Promise<{

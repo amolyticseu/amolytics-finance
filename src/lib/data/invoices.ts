@@ -3,6 +3,7 @@ import {
   HOURLY_RATE_EUR,
 } from "@/data/mock/constants"
 import { mockInvoices } from "@/data/mock/tables"
+import { isFallbackEntityId } from "@/lib/server/require-supabase-mutation"
 import { hasSupabaseEnv } from "@/lib/supabase/env"
 import { createClient } from "@/lib/supabase/server"
 import type { InvoiceListItem, InvoiceRow } from "@/lib/supabase/types"
@@ -183,12 +184,60 @@ function fallbackInvoiceList(): InvoiceListItem[] {
   return sortInvoiceList(items)
 }
 
-export async function getInvoices(): Promise<{
-  rows: InvoiceListItem[]
-  source: InvoiceDataSource
+export type InvoiceFormOption = { id: string; label: string }
+
+export async function getInvoiceFormOptions(): Promise<{
+  clients: InvoiceFormOption[]
+  bankAccounts: InvoiceFormOption[]
+  canMutate: boolean
 }> {
   if (!hasSupabaseEnv()) {
-    return { rows: fallbackInvoiceList(), source: "fallback" }
+    return { clients: [], bankAccounts: [], canMutate: false }
+  }
+
+  try {
+    const supabase = await createClient()
+    const [clientsRes, banksRes] = await Promise.all([
+      supabase
+        .from("clients")
+        .select("id, name, code")
+        .eq("active", true)
+        .order("name", { ascending: true }),
+      supabase
+        .from("bank_accounts")
+        .select("id, account_name, institution_name")
+        .eq("active", true)
+        .is("deleted_at", null)
+        .order("institution_name", { ascending: true }),
+    ])
+
+    if (clientsRes.error || banksRes.error) {
+      return { clients: [], bankAccounts: [], canMutate: false }
+    }
+
+    const clients = (clientsRes.data ?? []).map((c) => ({
+      id: String(c.id),
+      label: `${c.name} (${c.code})`,
+    }))
+    const bankAccounts = (banksRes.data ?? []).map((b) => ({
+      id: String(b.id),
+      label: `${b.institution_name} — ${b.account_name}`,
+    }))
+
+    return { clients, bankAccounts, canMutate: true }
+  } catch {
+    return { clients: [], bankAccounts: [], canMutate: false }
+  }
+}
+
+export async function getInvoiceById(id: string): Promise<{
+  row: InvoiceListItem | null
+  source: InvoiceDataSource
+  canMutate: boolean
+}> {
+  if (isFallbackEntityId(id) || !hasSupabaseEnv()) {
+    const fallback = fallbackInvoiceList().find((inv) => inv.id === id) ?? null
+    return { row: fallback, source: "fallback", canMutate: false }
   }
 
   try {
@@ -196,25 +245,69 @@ export async function getInvoices(): Promise<{
     const { data, error } = await supabase
       .from("invoices")
       .select("*, clients(name, code)")
-      .is("deleted_at", null)
+      .eq("id", id)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) warnFallback("getInvoiceById", error)
+      return { row: null, source: "fallback", canMutate: false }
+    }
+
+    return {
+      row: joinRowToListItem(data as InvoiceJoinRow),
+      source: "database",
+      canMutate: true,
+    }
+  } catch (e) {
+    warnFallback("getInvoiceById", e)
+    return { row: null, source: "fallback", canMutate: false }
+  }
+}
+
+export async function getInvoices(options?: {
+  includeCancelled?: boolean
+}): Promise<{
+  rows: InvoiceListItem[]
+  source: InvoiceDataSource
+  canMutate: boolean
+}> {
+  const includeCancelled = options?.includeCancelled ?? false
+  const canMutate = hasSupabaseEnv()
+
+  if (!hasSupabaseEnv()) {
+    return { rows: fallbackInvoiceList(), source: "fallback", canMutate: false }
+  }
+
+  try {
+    const supabase = await createClient()
+    let query = supabase
+      .from("invoices")
+      .select("*, clients(name, code)")
       .order("created_at", { ascending: false })
+
+    if (!includeCancelled) {
+      query = query.is("deleted_at", null)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       warnFallback("getInvoices", error)
-      return { rows: fallbackInvoiceList(), source: "fallback" }
+      return { rows: fallbackInvoiceList(), source: "fallback", canMutate: false }
     }
 
     const rawRows = (data ?? []) as InvoiceJoinRow[]
     if (rawRows.length === 0) {
-      return { rows: fallbackInvoiceList(), source: "fallback" }
+      return { rows: fallbackInvoiceList(), source: "fallback", canMutate }
     }
 
     return {
       rows: sortInvoiceList(rawRows.map(joinRowToListItem)),
       source: "database",
+      canMutate,
     }
   } catch (e) {
     warnFallback("getInvoices", e)
-    return { rows: fallbackInvoiceList(), source: "fallback" }
+    return { rows: fallbackInvoiceList(), source: "fallback", canMutate: false }
   }
 }

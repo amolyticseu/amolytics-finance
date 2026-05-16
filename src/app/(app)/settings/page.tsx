@@ -1,4 +1,8 @@
+import Link from "next/link"
+
+import { DataSourceNote } from "@/components/shell/data-source-note"
 import { PageHeader } from "@/components/shell/page-header"
+import { buttonVariants } from "@/components/ui/button"
 import { SectionCard } from "@/components/shell/section-card"
 import {
   DataTable,
@@ -17,6 +21,7 @@ import { getActiveClients } from "@/lib/data/clients"
 import { getLatestExchangeRate } from "@/lib/data/settings"
 import { hasSupabaseEnv } from "@/lib/supabase/env"
 import { formatEur } from "@/lib/format"
+import { cn } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 
@@ -40,18 +45,16 @@ export default async function SettingsPage() {
         description="Workspace defaults, live Supabase reads when configured, and built-in fallbacks for local work without a database."
       />
 
-      <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-        Using database values when configured; fallback defaults are shown in
-        local mock mode.{" "}
-        <span className="text-foreground/80">
-          Supabase env: {supabaseConfigured ? "present" : "not set"} · Data
-          rows:{" "}
-          {anyFallback
+      <DataSourceNote
+        supabaseConfigured={supabaseConfigured}
+        source={anyFallback ? "fallback" : "database"}
+        sourceLabel={
+          anyFallback
             ? "at least one section used fallbacks"
-            : "loaded from database"}
-          .
-        </span>
-      </p>
+            : "settings reads (FX, clients, bank_accounts)"
+        }
+        canMutate={supabaseConfigured}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <SectionCard
@@ -84,6 +87,14 @@ export default async function SettingsPage() {
         <SectionCard
           title="Active clients"
           description={`Source: ${clients.source === "database" ? "clients table" : "built-in default"}.`}
+          action={
+            <Link
+              href="/settings/clients"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Manage clients
+            </Link>
+          }
         >
           {clients.rows.length === 0 ? (
             <p className="text-sm text-muted-foreground">
@@ -126,7 +137,15 @@ export default async function SettingsPage() {
 
       <SectionCard
         title="Bank accounts"
-        description={`Source: ${banks.source === "database" ? "bank_accounts table" : "built-in default list"}. Active, not soft-deleted.`}
+        description={`Source: ${banks.source === "database" ? "bank_accounts table" : "built-in default list"}. Active, not soft-deleted. Client invoice payments: prefer HSBC Malta; Wise is not the primary invoice account.`}
+        action={
+          <Link
+            href="/settings/bank-accounts"
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            Manage accounts
+          </Link>
+        }
       >
         {banks.rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
@@ -141,6 +160,7 @@ export default async function SettingsPage() {
                 <DataTableTh>Institution</DataTableTh>
                 <DataTableTh>Type</DataTableTh>
                 <DataTableTh>CCY</DataTableTh>
+                <DataTableTh>Masked ID</DataTableTh>
                 <DataTableTh>Country</DataTableTh>
                 <DataTableTh>Business</DataTableTh>
               </tr>
@@ -157,6 +177,9 @@ export default async function SettingsPage() {
                     {b.account_type ?? "—"}
                   </DataTableTd>
                   <DataTableTd>{b.currency}</DataTableTd>
+                  <DataTableTd className="font-mono text-xs text-muted-foreground">
+                    {b.iban_masked ?? "—"}
+                  </DataTableTd>
                   <DataTableTd className="text-muted-foreground">
                     {b.country ?? "—"}
                   </DataTableTd>

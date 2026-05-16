@@ -1,6 +1,11 @@
 import type { ReactNode } from "react"
+import Link from "next/link"
 
+import { DataSourceNote } from "@/components/shell/data-source-note"
+import { PageAlert } from "@/components/shell/page-alert"
 import { PageHeader } from "@/components/shell/page-header"
+import { EmptyTableState } from "@/components/shell/empty-table-state"
+import { dataTableRowClassName } from "@/components/shell/data-table"
 import { SectionCard } from "@/components/shell/section-card"
 import {
   DataTable,
@@ -10,7 +15,10 @@ import {
   DataTableTh,
 } from "@/components/shell/data-table"
 import { StatusBadge } from "@/components/shell/status-badge"
+import { buttonVariants } from "@/components/ui/button"
 import { getTasks } from "@/lib/data/tasks"
+import { hasSupabaseEnv } from "@/lib/supabase/env"
+import { cn } from "@/lib/utils"
 import type { TaskCategoryDb, TaskPriorityDb } from "@/types"
 import type { TaskRow } from "@/lib/supabase/types"
 
@@ -57,34 +65,56 @@ function detailCell(row: TaskRow): ReactNode {
   return <span className="text-muted-foreground">—</span>
 }
 
-export default async function TasksPage() {
-  const { rows, source } = await getTasks()
+type TasksPageProps = {
+  searchParams: Promise<{ deleted?: string }>
+}
+
+export default async function TasksPage({ searchParams }: TasksPageProps) {
+  const params = await searchParams
+  const { rows, source, canMutate } = await getTasks()
+  const supabaseConfigured = hasSupabaseEnv()
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Tasks"
-        description="Compliance, payroll registers, and client admin checkpoints — read-only register."
+        description="Compliance, payroll registers, and client admin checkpoints."
+        actions={
+          canMutate ? (
+            <Link
+              href="/tasks/new"
+              className={cn(buttonVariants({ size: "sm" }))}
+            >
+              Add task
+            </Link>
+          ) : null
+        }
       />
 
-      <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-        Using database values when configured; fallback defaults are shown in
-        local mock mode.{" "}
-        <span className="text-foreground/80">
-          Source:{" "}
-          {source === "database" ? "tasks table" : "built-in compliance examples"}
-          .
-        </span>
-      </p>
+      {params.deleted === "1" ? (
+        <PageAlert>Task deleted.</PageAlert>
+      ) : null}
+
+      <DataSourceNote
+        supabaseConfigured={supabaseConfigured}
+        source={source}
+        sourceLabel={
+          source === "database" ? "tasks table" : "built-in compliance examples"
+        }
+        canMutate={canMutate}
+      />
 
       <SectionCard
         title="Checklist"
         description={
           source === "database"
-            ? "Rows from Supabase (read-only). Assign and complete in a later phase."
+            ? "Rows from Supabase — create, edit, and update status when connected."
             : "Illustrative tasks for local development — seed `tasks` for live data."
         }
       >
+        {rows.length === 0 ? (
+          <EmptyTableState message="No tasks to show. Add one when Supabase is connected." />
+        ) : (
         <DataTable className="min-w-[56rem]">
           <DataTableHeader>
             <tr>
@@ -96,14 +126,12 @@ export default async function TasksPage() {
               <DataTableTh>Completed</DataTableTh>
               <DataTableTh>Related</DataTableTh>
               <DataTableTh>Detail</DataTableTh>
+              <DataTableTh align="right">Actions</DataTableTh>
             </tr>
           </DataTableHeader>
           <DataTableBody>
             {rows.map((row) => (
-              <tr
-                key={row.id}
-                className="border-b border-border/40 transition-colors hover:bg-muted/15 last:border-b-0"
-              >
+              <tr key={row.id} className={dataTableRowClassName}>
                 <DataTableTd className="max-w-[14rem] font-medium">
                   {row.title}
                 </DataTableTd>
@@ -126,10 +154,19 @@ export default async function TasksPage() {
                   {relatedCell(row)}
                 </DataTableTd>
                 <DataTableTd>{detailCell(row)}</DataTableTd>
+                <DataTableTd align="right">
+                  <Link
+                    href={`/tasks/${row.id}/edit`}
+                    className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                  >
+                    {canMutate ? "Edit" : "View"}
+                  </Link>
+                </DataTableTd>
               </tr>
             ))}
           </DataTableBody>
         </DataTable>
+        )}
       </SectionCard>
     </div>
   )

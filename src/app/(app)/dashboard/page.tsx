@@ -20,6 +20,7 @@ import {
   DataTableTd,
   DataTableTh,
 } from "@/components/shell/data-table"
+import { DataSourceNote } from "@/components/shell/data-source-note"
 import { PageHeader } from "@/components/shell/page-header"
 import { SectionCard } from "@/components/shell/section-card"
 import { StatusBadge } from "@/components/shell/status-badge"
@@ -30,6 +31,7 @@ import {
   REVENUE_TYPICAL_LOW_EUR,
 } from "@/data/mock/constants"
 import { getDashboardSummary } from "@/lib/data/dashboard"
+import { hasSupabaseEnv } from "@/lib/supabase/env"
 import { formatCompactEur, formatEur, formatInr } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -37,6 +39,7 @@ export const dynamic = "force-dynamic"
 
 export default async function DashboardPage() {
   const { summary, source } = await getDashboardSummary()
+  const supabaseConfigured = hasSupabaseEnv()
   const today = new Date()
   const asOf = format(today, "d MMM yyyy")
   const rateLabel = Math.round(summary.exchangeRateInrPerEur)
@@ -56,17 +59,15 @@ export default async function DashboardPage() {
         }
       />
 
-      <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-        Using database values when configured; fallback defaults are shown in
-        local mock mode.{" "}
-        <span className="text-foreground/80">
-          Source:{" "}
-          {source === "database"
+      <DataSourceNote
+        supabaseConfigured={supabaseConfigured}
+        source={source}
+        sourceLabel={
+          source === "database"
             ? "aggregates from invoices, expenses, salary_payments, tasks, exchange_rates"
-            : "mock figures + tables"}
-          .
-        </span>
-      </p>
+            : "mock figures + tables"
+        }
+      />
 
       <section
         className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"

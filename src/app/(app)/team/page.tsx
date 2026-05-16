@@ -1,4 +1,10 @@
+import Link from "next/link"
+
+import { DataSourceNote } from "@/components/shell/data-source-note"
+import { PageAlert } from "@/components/shell/page-alert"
 import { PageHeader } from "@/components/shell/page-header"
+import { EmptyTableState } from "@/components/shell/empty-table-state"
+import { dataTableRowClassName } from "@/components/shell/data-table"
 import { SectionCard } from "@/components/shell/section-card"
 import {
   DataTable,
@@ -8,9 +14,12 @@ import {
   DataTableTh,
 } from "@/components/shell/data-table"
 import { StatusBadge } from "@/components/shell/status-badge"
-import { getActiveTeamMembers } from "@/lib/data/team"
+import { Badge } from "@/components/ui/badge"
+import { buttonVariants } from "@/components/ui/button"
+import { getTeamMembersForManage } from "@/lib/data/team"
 import { hasSupabaseEnv } from "@/lib/supabase/env"
 import { formatEur, formatInr } from "@/lib/format"
+import { cn } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 
@@ -29,30 +38,67 @@ function formatBank(row: {
   return parts.length > 0 ? parts.join(" · ") : "—"
 }
 
-export default async function TeamPage() {
-  const { rows, source } = await getActiveTeamMembers()
+type TeamPageProps = {
+  searchParams: Promise<{ showInactive?: string; deactivated?: string }>
+}
+
+export default async function TeamPage({ searchParams }: TeamPageProps) {
+  const params = await searchParams
+  const includeInactive = params.showInactive === "1"
+  const { rows, source, canMutate } = await getTeamMembersForManage({
+    includeInactive,
+  })
   const supabaseConfigured = hasSupabaseEnv()
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Team"
-        description="India delivery bench — roster from Supabase when configured, otherwise the same local fallback list used after seeding."
+        description="India delivery bench — roster from Supabase when configured, otherwise local fallback."
+        actions={
+          canMutate ? (
+            <Link
+              href="/team/new"
+              className={cn(buttonVariants({ size: "sm" }))}
+            >
+              Add member
+            </Link>
+          ) : null
+        }
       />
 
-      <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-        Using database values when configured; fallback defaults are shown in
-        local mock mode.{" "}
-        <span className="text-foreground/80">
-          Supabase env: {supabaseConfigured ? "present" : "not set"} · Roster
-          source: {source === "database" ? "database" : "fallback"}.
-        </span>
-      </p>
+      {params.deactivated === "1" ? (
+        <PageAlert>Team member deactivated.</PageAlert>
+      ) : null}
+
+      <DataSourceNote
+        supabaseConfigured={supabaseConfigured}
+        source={source}
+        sourceLabel={
+          source === "database" ? "team_members table" : "built-in fallback roster"
+        }
+        canMutate={canMutate}
+      />
 
       <SectionCard
         title="Roster"
-        description={`Active team members · sorted by name · ${source === "database" ? "team_members table" : "built-in fallback (see mockTeamFallbackMembers)"}.`}
+        description={
+          includeInactive
+            ? "Including inactive members."
+            : `Active team members · ${source === "database" ? "team_members table" : "built-in fallback"}.`
+        }
+        action={
+          <Link
+            href={includeInactive ? "/team" : "/team?showInactive=1"}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            {includeInactive ? "Hide inactive" : "Show inactive"}
+          </Link>
+        }
       >
+        {rows.length === 0 ? (
+          <EmptyTableState message="No team members to show. Add one when Supabase is connected, or check Show inactive." />
+        ) : (
         <DataTable>
           <DataTableHeader>
             <tr>
@@ -61,15 +107,13 @@ export default async function TeamPage() {
               <DataTableTh align="right">Base salary</DataTableTh>
               <DataTableTh>Currency</DataTableTh>
               <DataTableTh>Bank</DataTableTh>
-              <DataTableTh>Active</DataTableTh>
+              <DataTableTh>Status</DataTableTh>
+              <DataTableTh align="right">Actions</DataTableTh>
             </tr>
           </DataTableHeader>
           <DataTableBody>
             {rows.map((m) => (
-              <tr
-                key={m.id}
-                className="border-b border-border/40 transition-colors hover:bg-muted/15 last:border-b-0"
-              >
+              <tr key={m.id} className={dataTableRowClassName}>
                 <DataTableTd className="font-medium">{m.name}</DataTableTd>
                 <DataTableTd className="text-muted-foreground">
                   {m.role ?? "—"}
@@ -85,13 +129,22 @@ export default async function TeamPage() {
                   {m.active ? (
                     <StatusBadge status="active" />
                   ) : (
-                    <span className="text-sm text-muted-foreground">Inactive</span>
+                    <Badge variant="outline">Inactive</Badge>
                   )}
+                </DataTableTd>
+                <DataTableTd align="right">
+                  <Link
+                    href={`/team/${m.id}/edit`}
+                    className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                  >
+                    {canMutate ? "Edit" : "View"}
+                  </Link>
                 </DataTableTd>
               </tr>
             ))}
           </DataTableBody>
         </DataTable>
+        )}
       </SectionCard>
     </div>
   )

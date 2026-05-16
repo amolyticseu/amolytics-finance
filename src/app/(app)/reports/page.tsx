@@ -1,8 +1,10 @@
+import { DataSourceNote } from "@/components/shell/data-source-note"
 import { PageHeader } from "@/components/shell/page-header"
 import { MonthlyPlChart } from "@/components/reports/monthly-pl-chart"
 import { SectionCard } from "@/components/shell/section-card"
 import { StatCard } from "@/components/dashboard/stat-card"
 import { getMonthlyProfitLossReport } from "@/lib/data/reports"
+import { hasSupabaseEnv } from "@/lib/supabase/env"
 import { formatCompactEur, formatEur, formatInr } from "@/lib/format"
 import {
   ArrowRightLeft,
@@ -17,6 +19,7 @@ export const dynamic = "force-dynamic"
 
 export default async function ReportsPage() {
   const report = await getMonthlyProfitLossReport()
+  const supabaseConfigured = hasSupabaseEnv()
 
   return (
     <div className="space-y-8">
@@ -25,17 +28,15 @@ export default async function ReportsPage() {
         description="Monthly revenue vs expenses from snapshots (or mock series when offline)."
       />
 
-      <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-        Using database values when configured; fallback defaults are shown in
-        local mock mode.{" "}
-        <span className="text-foreground/80">
-          Source:{" "}
-          {report.source === "database"
+      <DataSourceNote
+        supabaseConfigured={supabaseConfigured}
+        source={report.source}
+        sourceLabel={
+          report.source === "database"
             ? "monthly_snapshots"
-            : "mock monthly P&L (tables)"}
-          .
-        </span>
-      </p>
+            : "mock monthly P&L series"
+        }
+      />
 
       <section
         className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"

@@ -1,4 +1,10 @@
+import Link from "next/link"
+
+import { DataSourceNote } from "@/components/shell/data-source-note"
+import { PageAlert } from "@/components/shell/page-alert"
 import { PageHeader } from "@/components/shell/page-header"
+import { EmptyTableState } from "@/components/shell/empty-table-state"
+import { dataTableRowClassName } from "@/components/shell/data-table"
 import { SectionCard } from "@/components/shell/section-card"
 import {
   DataTable,
@@ -7,9 +13,12 @@ import {
   DataTableTd,
   DataTableTh,
 } from "@/components/shell/data-table"
+import { buttonVariants } from "@/components/ui/button"
 import { getPayments } from "@/lib/data/payments"
 import { formatEur } from "@/lib/format"
+import { hasSupabaseEnv } from "@/lib/supabase/env"
 import type { PaymentListItem, PaymentTypeDb } from "@/lib/supabase/types"
+import { cn } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 
@@ -34,37 +43,72 @@ function formatMoney(amount: number, currency: string): string {
   return `${amount.toLocaleString("en-IE", { maximumFractionDigits: 2 })} ${currency}`
 }
 
-export default async function PaymentsPage() {
-  const { rows, source } = await getPayments()
+type PaymentsPageProps = {
+  searchParams: Promise<{ showDeleted?: string; deleted?: string }>
+}
+
+export default async function PaymentsPage({ searchParams }: PaymentsPageProps) {
+  const params = await searchParams
+  const includeDeleted = params.showDeleted === "1"
+  const { rows, source, canMutate } = await getPayments({ includeDeleted })
+  const supabaseConfigured = hasSupabaseEnv()
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Payments"
-        description="Cash-in across Wise, Revolut, HSBC, and ICICI — reconciliation is mock-only for now."
+        description="Cash in and out across HSBC, Revolut, ICICI, and Wise — optional links to invoices, salaries, or expenses. Client invoice receipts typically land in HSBC Malta."
+        actions={
+          canMutate ? (
+            <Link
+              href="/payments/new"
+              className={cn(buttonVariants({ size: "sm" }))}
+            >
+              Add payment
+            </Link>
+          ) : null
+        }
       />
 
-      <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-        Using database values when configured; fallback defaults are shown in
-        local mock mode.{" "}
-        <span className="text-foreground/80">
-          Source:{" "}
-          {source === "database"
+      {params.deleted === "1" ? (
+        <PageAlert>Payment removed from the active register.</PageAlert>
+      ) : null}
+
+      <DataSourceNote
+        supabaseConfigured={supabaseConfigured}
+        source={source}
+        sourceLabel={
+          source === "database"
             ? "payments (+ invoices & bank_accounts joins)"
-            : "built-in mock register"}
-          .
-        </span>
-      </p>
+            : "built-in mock register"
+        }
+        canMutate={canMutate}
+      />
 
       <SectionCard
         title="Received & in-flight"
         description={
-          source === "database"
-            ? "Rows from Supabase (read-only). Match to invoices in a later phase."
-            : "Mock line items for local development. Match to invoices in a later phase."
+          includeDeleted
+            ? "Including soft-deleted payments."
+            : source === "database"
+              ? "Active payments from Supabase. Invoice links are optional."
+              : "Mock line items for local development."
+        }
+        action={
+          <Link
+            href={
+              includeDeleted ? "/payments" : "/payments?showDeleted=1"
+            }
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            {includeDeleted ? "Hide removed" : "Show removed"}
+          </Link>
         }
       >
-        <DataTable className="min-w-[56rem]">
+        {rows.length === 0 ? (
+          <EmptyTableState message="No payments to show. Add one when Supabase is connected, or check Show removed." />
+        ) : (
+        <DataTable className="min-w-[60rem]">
           <DataTableHeader>
             <tr>
               <DataTableTh>Date</DataTableTh>
@@ -76,15 +120,12 @@ export default async function PaymentsPage() {
               <DataTableTh>Bank / account</DataTableTh>
               <DataTableTh>Reference</DataTableTh>
               <DataTableTh>Payer / payee</DataTableTh>
-              <DataTableTh>Notes</DataTableTh>
+              <DataTableTh align="right">Actions</DataTableTh>
             </tr>
           </DataTableHeader>
           <DataTableBody>
             {rows.map((row) => (
-              <tr
-                key={row.id}
-                className="border-b border-border/40 transition-colors hover:bg-muted/15 last:border-b-0"
-              >
+              <tr key={row.id} className={dataTableRowClassName}>
                 <DataTableTd className="tabular-nums text-muted-foreground">
                   {row.payment_date || "—"}
                 </DataTableTd>
@@ -114,13 +155,19 @@ export default async function PaymentsPage() {
                 <DataTableTd className="max-w-[10rem] truncate">
                   {row.payer_payee_name ?? "—"}
                 </DataTableTd>
-                <DataTableTd className="max-w-[12rem] truncate text-muted-foreground">
-                  {row.notes?.trim() ? row.notes : "—"}
+                <DataTableTd align="right">
+                  <Link
+                    href={`/payments/${row.id}/edit`}
+                    className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                  >
+                    {canMutate ? "Edit" : "View"}
+                  </Link>
                 </DataTableTd>
               </tr>
             ))}
           </DataTableBody>
         </DataTable>
+        )}
       </SectionCard>
     </div>
   )

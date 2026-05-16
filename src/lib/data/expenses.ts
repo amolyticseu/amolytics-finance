@@ -1,4 +1,5 @@
 import { CLIENT_LABEL } from "@/data/mock/constants"
+import { isFallbackEntityId } from "@/lib/server/require-supabase-mutation"
 import { hasSupabaseEnv } from "@/lib/supabase/env"
 import { createClient } from "@/lib/supabase/server"
 import type { ExpenseListItem, ExpenseRow } from "@/lib/supabase/types"
@@ -323,12 +324,63 @@ function fallbackExpenseList(): ExpenseListItem[] {
   return sortExpenseList(items)
 }
 
-export async function getExpenses(): Promise<{
-  rows: ExpenseListItem[]
-  source: ExpenseDataSource
-}> {
+export type ExpenseFormOption = { id: string; label: string }
+
+export type ExpenseFormOptions = {
+  clients: ExpenseFormOption[]
+  bankAccounts: ExpenseFormOption[]
+  canMutate: boolean
+}
+
+export async function getExpenseFormOptions(): Promise<ExpenseFormOptions> {
   if (!hasSupabaseEnv()) {
-    return { rows: fallbackExpenseList(), source: "fallback" }
+    return { clients: [], bankAccounts: [], canMutate: false }
+  }
+
+  try {
+    const supabase = await createClient()
+    const [clientsRes, banksRes] = await Promise.all([
+      supabase
+        .from("clients")
+        .select("id, name, code")
+        .eq("active", true)
+        .order("name", { ascending: true }),
+      supabase
+        .from("bank_accounts")
+        .select("id, account_name, institution_name")
+        .eq("active", true)
+        .is("deleted_at", null)
+        .order("institution_name", { ascending: true }),
+    ])
+
+    if (clientsRes.error || banksRes.error) {
+      return { clients: [], bankAccounts: [], canMutate: false }
+    }
+
+    const clients = (clientsRes.data ?? []).map((c) => ({
+      id: String(c.id),
+      label: `${c.name} (${c.code})`,
+    }))
+
+    const bankAccounts = (banksRes.data ?? []).map((b) => ({
+      id: String(b.id),
+      label: `${b.institution_name} — ${b.account_name}`,
+    }))
+
+    return { clients, bankAccounts, canMutate: true }
+  } catch {
+    return { clients: [], bankAccounts: [], canMutate: false }
+  }
+}
+
+export async function getExpenseById(id: string): Promise<{
+  row: ExpenseListItem | null
+  source: ExpenseDataSource
+  canMutate: boolean
+}> {
+  if (isFallbackEntityId(id) || !hasSupabaseEnv()) {
+    const fallback = fallbackExpenseList().find((e) => e.id === id) ?? null
+    return { row: fallback, source: "fallback", canMutate: false }
   }
 
   try {
@@ -338,26 +390,72 @@ export async function getExpenses(): Promise<{
       .select(
         "*, clients(name, code), bank_accounts(account_name, institution_name)"
       )
-      .is("deleted_at", null)
+      .eq("id", id)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) warnFallback("getExpenseById", error)
+      return { row: null, source: "fallback", canMutate: false }
+    }
+
+    return {
+      row: joinRowToListItem(data as ExpenseJoinRow),
+      source: "database",
+      canMutate: true,
+    }
+  } catch (e) {
+    warnFallback("getExpenseById", e)
+    return { row: null, source: "fallback", canMutate: false }
+  }
+}
+
+export async function getExpenses(options?: {
+  includeRemoved?: boolean
+}): Promise<{
+  rows: ExpenseListItem[]
+  source: ExpenseDataSource
+  canMutate: boolean
+}> {
+  const includeRemoved = options?.includeRemoved ?? false
+  const canMutate = hasSupabaseEnv()
+
+  if (!hasSupabaseEnv()) {
+    return { rows: fallbackExpenseList(), source: "fallback", canMutate: false }
+  }
+
+  try {
+    const supabase = await createClient()
+    let query = supabase
+      .from("expenses")
+      .select(
+        "*, clients(name, code), bank_accounts(account_name, institution_name)"
+      )
       .order("expense_date", { ascending: false })
       .order("created_at", { ascending: false })
 
+    if (!includeRemoved) {
+      query = query.is("deleted_at", null)
+    }
+
+    const { data, error } = await query
+
     if (error) {
       warnFallback("getExpenses", error)
-      return { rows: fallbackExpenseList(), source: "fallback" }
+      return { rows: fallbackExpenseList(), source: "fallback", canMutate: false }
     }
 
     const rawRows = (data ?? []) as ExpenseJoinRow[]
     if (rawRows.length === 0) {
-      return { rows: fallbackExpenseList(), source: "fallback" }
+      return { rows: fallbackExpenseList(), source: "fallback", canMutate }
     }
 
     return {
       rows: sortExpenseList(rawRows.map(joinRowToListItem)),
       source: "database",
+      canMutate,
     }
   } catch (e) {
     warnFallback("getExpenses", e)
-    return { rows: fallbackExpenseList(), source: "fallback" }
+    return { rows: fallbackExpenseList(), source: "fallback", canMutate: false }
   }
 }

@@ -1,3 +1,4 @@
+import { isFallbackEntityId } from "@/lib/server/require-supabase-mutation"
 import { hasSupabaseEnv } from "@/lib/supabase/env"
 import { createClient } from "@/lib/supabase/server"
 import type { TaskRow } from "@/lib/supabase/types"
@@ -242,12 +243,49 @@ function fallbackTaskList(): TaskRow[] {
   return sortTaskRows(rows)
 }
 
+export async function getTaskById(id: string): Promise<{
+  row: TaskRow | null
+  source: TaskDataSource
+  canMutate: boolean
+}> {
+  if (isFallbackEntityId(id) || !hasSupabaseEnv()) {
+    const fallback = fallbackTaskList().find((t) => t.id === id) ?? null
+    return { row: fallback, source: "fallback", canMutate: false }
+  }
+
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) warnFallback("getTaskById", error)
+      return { row: null, source: "fallback", canMutate: false }
+    }
+
+    return {
+      row: normalizeTaskFromUnknown(data as Record<string, unknown>),
+      source: "database",
+      canMutate: true,
+    }
+  } catch (e) {
+    warnFallback("getTaskById", e)
+    return { row: null, source: "fallback", canMutate: false }
+  }
+}
+
 export async function getTasks(): Promise<{
   rows: TaskRow[]
   source: TaskDataSource
+  canMutate: boolean
 }> {
+  const canMutate = hasSupabaseEnv()
+
   if (!hasSupabaseEnv()) {
-    return { rows: fallbackTaskList(), source: "fallback" }
+    return { rows: fallbackTaskList(), source: "fallback", canMutate: false }
   }
 
   try {
@@ -256,20 +294,21 @@ export async function getTasks(): Promise<{
 
     if (error) {
       warnFallback("getTasks", error)
-      return { rows: fallbackTaskList(), source: "fallback" }
+      return { rows: fallbackTaskList(), source: "fallback", canMutate: false }
     }
 
     const rawRows = (data ?? []) as Record<string, unknown>[]
     if (rawRows.length === 0) {
-      return { rows: fallbackTaskList(), source: "fallback" }
+      return { rows: fallbackTaskList(), source: "fallback", canMutate }
     }
 
     return {
       rows: sortTaskRows(rawRows.map(normalizeTaskFromUnknown)),
       source: "database",
+      canMutate,
     }
   } catch (e) {
     warnFallback("getTasks", e)
-    return { rows: fallbackTaskList(), source: "fallback" }
+    return { rows: fallbackTaskList(), source: "fallback", canMutate: false }
   }
 }

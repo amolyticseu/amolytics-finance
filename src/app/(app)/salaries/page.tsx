@@ -1,4 +1,10 @@
+import Link from "next/link"
+
+import { DataSourceNote } from "@/components/shell/data-source-note"
+import { PageAlert } from "@/components/shell/page-alert"
 import { PageHeader } from "@/components/shell/page-header"
+import { EmptyTableState } from "@/components/shell/empty-table-state"
+import { dataTableRowClassName } from "@/components/shell/data-table"
 import { SectionCard } from "@/components/shell/section-card"
 import {
   DataTable,
@@ -8,9 +14,12 @@ import {
   DataTableTh,
 } from "@/components/shell/data-table"
 import { StatusBadge } from "@/components/shell/status-badge"
+import { buttonVariants } from "@/components/ui/button"
 import { MONTHLY_EMI_INR_TOTAL } from "@/data/mock/constants"
 import { getSalaryPayments } from "@/lib/data/salaries"
 import { formatEur, formatInr } from "@/lib/format"
+import { hasSupabaseEnv } from "@/lib/supabase/env"
+import { cn } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 
@@ -34,36 +43,73 @@ function memberLabel(row: {
   return row.team_member_id
 }
 
-export default async function SalariesPage() {
-  const { rows, source } = await getSalaryPayments()
+type SalariesPageProps = {
+  searchParams: Promise<{ showDeleted?: string; deleted?: string }>
+}
+
+export default async function SalariesPage({ searchParams }: SalariesPageProps) {
+  const params = await searchParams
+  const includeDeleted = params.showDeleted === "1"
+  const { rows, source, canMutate } = await getSalaryPayments({ includeDeleted })
+  const supabaseConfigured = hasSupabaseEnv()
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Salaries"
         description={`India payroll batches · reference EMI load ₹${MONTHLY_EMI_INR_TOTAL.toLocaleString("en-IN")}/month (non-salary, shown on Expenses).`}
+        actions={
+          canMutate ? (
+            <Link
+              href="/salaries/new"
+              className={cn(buttonVariants({ size: "sm" }))}
+            >
+              Add salary payment
+            </Link>
+          ) : null
+        }
       />
 
-      <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-        Using database values when configured; fallback defaults are shown in
-        local mock mode.{" "}
-        <span className="text-foreground/80">
-          Source:{" "}
-          {source === "database"
+      {params.deleted === "1" ? (
+        <p className="rounded-lg border border-border/80 bg-muted/30 px-3 py-2 text-sm text-foreground">
+          Salary payment removed from the active register.
+        </p>
+      ) : null}
+
+      <DataSourceNote
+        supabaseConfigured={supabaseConfigured}
+        source={source}
+        sourceLabel={
+          source === "database"
             ? "salary_payments (+ team_members & bank_accounts joins)"
-            : "built-in mock lines (seed-aligned names)"}
-          .
-        </span>
-      </p>
+            : "built-in mock lines"
+        }
+        canMutate={canMutate}
+      />
 
       <SectionCard
         title="Payroll runs"
         description={
-          source === "database"
-            ? "Rows from Supabase (read-only). Amounts per row currency."
-            : "Per-member mock lines for May 2026 · amounts in INR (local development)."
+          includeDeleted
+            ? "Including soft-deleted salary payments."
+            : source === "database"
+              ? "Active rows from Supabase. Manual entry only."
+              : "Per-member mock lines for local development."
+        }
+        action={
+          <Link
+            href={
+              includeDeleted ? "/salaries" : "/salaries?showDeleted=1"
+            }
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            {includeDeleted ? "Hide removed" : "Show removed"}
+          </Link>
         }
       >
+        {rows.length === 0 ? (
+          <EmptyTableState message="No salary payments to show. Add one when Supabase is connected, or check Show removed." />
+        ) : (
         <DataTable className="min-w-[56rem]">
           <DataTableHeader>
             <tr>
@@ -79,15 +125,12 @@ export default async function SalariesPage() {
               <DataTableTh>Pay date</DataTableTh>
               <DataTableTh>Bank / account</DataTableTh>
               <DataTableTh>Reference</DataTableTh>
-              <DataTableTh>Notes</DataTableTh>
+              <DataTableTh align="right">Actions</DataTableTh>
             </tr>
           </DataTableHeader>
           <DataTableBody>
             {rows.map((row) => (
-              <tr
-                key={row.id}
-                className="border-b border-border/40 transition-colors hover:bg-muted/15 last:border-b-0"
-              >
+              <tr key={row.id} className={dataTableRowClassName}>
                 <DataTableTd className="font-medium tabular-nums">
                   {monthYearLabel(row.month, row.year)}
                 </DataTableTd>
@@ -134,13 +177,19 @@ export default async function SalariesPage() {
                 <DataTableTd className="max-w-[10rem] truncate font-mono text-xs text-muted-foreground">
                   {row.transaction_reference ?? "—"}
                 </DataTableTd>
-                <DataTableTd className="max-w-[12rem] truncate text-muted-foreground">
-                  {row.notes?.trim() ? row.notes : "—"}
+                <DataTableTd align="right">
+                  <Link
+                    href={`/salaries/${row.id}/edit`}
+                    className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                  >
+                    {canMutate ? "Edit" : "View"}
+                  </Link>
                 </DataTableTd>
               </tr>
             ))}
           </DataTableBody>
         </DataTable>
+        )}
       </SectionCard>
     </div>
   )

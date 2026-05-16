@@ -1,3 +1,4 @@
+import { isFallbackEntityId } from "@/lib/server/require-supabase-mutation"
 import { hasSupabaseEnv } from "@/lib/supabase/env"
 import { createClient } from "@/lib/supabase/server"
 import type { BankAccountRow } from "@/lib/supabase/types"
@@ -110,6 +111,101 @@ function fallbackBankAccounts(): BankAccountRow[] {
     if (byInst !== 0) return byInst
     return a.account_name.localeCompare(b.account_name, "en")
   })
+}
+
+export type BankAccountsQueryResult = {
+  rows: BankAccountRow[]
+  source: BankAccountDataSource
+  canMutate: boolean
+}
+
+export async function getBankAccountsForManage(options?: {
+  includeInactive?: boolean
+}): Promise<BankAccountsQueryResult> {
+  const includeInactive = options?.includeInactive ?? false
+
+  if (!hasSupabaseEnv()) {
+    return {
+      rows: fallbackBankAccounts(),
+      source: "fallback",
+      canMutate: false,
+    }
+  }
+
+  try {
+    const supabase = await createClient()
+    let query = supabase
+      .from("bank_accounts")
+      .select("*")
+      .order("institution_name", { ascending: true })
+      .order("account_name", { ascending: true })
+
+    if (!includeInactive) {
+      query = query.eq("active", true).is("deleted_at", null)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      warnFallback("getBankAccountsForManage", error)
+      return {
+        rows: fallbackBankAccounts(),
+        source: "fallback",
+        canMutate: false,
+      }
+    }
+
+    return {
+      rows: (data ?? []) as BankAccountRow[],
+      source: "database",
+      canMutate: true,
+    }
+  } catch (e) {
+    warnFallback("getBankAccountsForManage", e)
+    return {
+      rows: fallbackBankAccounts(),
+      source: "fallback",
+      canMutate: false,
+    }
+  }
+}
+
+export async function getBankAccountById(id: string): Promise<{
+  row: BankAccountRow | null
+  source: BankAccountDataSource
+  canMutate: boolean
+}> {
+  if (isFallbackEntityId(id) || !hasSupabaseEnv()) {
+    const fallback = fallbackBankAccounts().find((b) => b.id === id) ?? null
+    return {
+      row: fallback,
+      source: "fallback",
+      canMutate: false,
+    }
+  }
+
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from("bank_accounts")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) warnFallback("getBankAccountById", error)
+      return { row: null, source: "fallback", canMutate: false }
+    }
+
+    return {
+      row: data as BankAccountRow,
+      source: "database",
+      canMutate: true,
+    }
+  } catch (e) {
+    warnFallback("getBankAccountById", e)
+    return { row: null, source: "fallback", canMutate: false }
+  }
 }
 
 export async function getActiveBankAccounts(): Promise<{

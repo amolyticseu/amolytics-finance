@@ -34,7 +34,7 @@ export function MobileNav() {
       >
         <MenuIcon className="size-4" />
       </SheetTrigger>
-      <SheetContent side="left" className="w-72 p-0">
+      <SheetContent side="left" className="flex w-72 flex-col p-0">
         <SheetHeader className="border-b border-border p-4 text-left">
           <SheetTitle className="font-heading text-sm">Amolytics Finance</SheetTitle>
         </SheetHeader>
@@ -65,6 +65,9 @@ export function MobileNav() {
             )
           })}
         </nav>
+        <p className="mt-auto border-t border-border p-4 text-xs text-muted-foreground">
+          BMF · €15/hr · T01–T03
+        </p>
       </SheetContent>
     </Sheet>
   )
