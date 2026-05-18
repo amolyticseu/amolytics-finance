@@ -16,7 +16,7 @@ export function DataTable({
         className
       )}
     >
-      <table className="w-full min-w-[36rem] border-collapse text-sm">
+      <table className="w-full min-w-xl border-collapse text-sm">
         {children}
       </table>
     </div>

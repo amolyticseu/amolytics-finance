@@ -1,23 +1,46 @@
 import Link from "next/link"
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  FileCheck,
+  Receipt,
+  Wallet,
+} from "lucide-react"
 
-import { DataSourceNote } from "@/components/shell/data-source-note"
-import { PageAlert } from "@/components/shell/page-alert"
-import { PageHeader } from "@/components/shell/page-header"
-import { SectionCard } from "@/components/shell/section-card"
-import { EmptyTableState } from "@/components/shell/empty-table-state"
-import { dataTableRowClassName } from "@/components/shell/data-table"
+import { InvoicePanelCard } from "@/components/invoices/invoice-panel-card"
+import { InvoiceProofCompact } from "@/components/invoices/invoice-proof-compact"
+import { InvoicesCollectionFocus } from "@/components/invoices/invoices-collection-focus"
+import { InvoicesLifecycle } from "@/components/invoices/invoices-lifecycle"
+import { InvoicesProofChecklist } from "@/components/invoices/invoices-proof-checklist"
+import { PremiumKpiCard, SoftStatusBadge } from "@/components/design-system"
 import {
   DataTable,
   DataTableBody,
   DataTableHeader,
   DataTableTd,
   DataTableTh,
+  dataTableRowClassName,
 } from "@/components/shell/data-table"
-import { StatusBadge } from "@/components/shell/status-badge"
+import { DataSourceNote } from "@/components/shell/data-source-note"
+import { EmptyTableState } from "@/components/shell/empty-table-state"
+import { PageAlert } from "@/components/shell/page-alert"
+import { PageHeader } from "@/components/shell/page-header"
 import { buttonVariants } from "@/components/ui/button"
-import { CLIENT_LABEL } from "@/data/mock/constants"
 import { getInvoices } from "@/lib/data/invoices"
-import { formatEur } from "@/lib/format"
+import { formatCompactEur, formatEur } from "@/lib/format"
+import {
+  buildCollectionFocusItems,
+  buildInvoiceKpis,
+  buildLifecycleStages,
+  buildProofChecklistOverview,
+  displayClientLabel,
+  formatPeriodLabel,
+  invoiceNumberDisplay,
+  invoiceStatusToSoftToken,
+  paymentSoftStatus,
+  proofPercent,
+} from "@/lib/invoices/presentation"
 import { hasSupabaseEnv } from "@/lib/supabase/env"
 import type { InvoiceListItem } from "@/lib/supabase/types"
 import { cn } from "@/lib/utils"
@@ -27,42 +50,6 @@ export const dynamic = "force-dynamic"
 function formatMoney(amount: number, currency: string): string {
   if (currency === "EUR") return formatEur(amount)
   return `${amount.toLocaleString("en-IE", { maximumFractionDigits: 2 })} ${currency}`
-}
-
-function formatPeriodLabel(row: InvoiceListItem): string {
-  if (row.year != null && row.month != null && row.period_code) {
-    const mm = String(row.month).padStart(2, "0")
-    return `${row.year}-${mm} · ${row.period_code}`
-  }
-  if (row.period_code) return row.period_code
-  return "—"
-}
-
-function formatMonthYear(row: InvoiceListItem): string {
-  if (row.year != null && row.month != null) {
-    const mm = String(row.month).padStart(2, "0")
-    return `${row.year}-${mm}`
-  }
-  return "—"
-}
-
-function clientLabel(row: InvoiceListItem): string {
-  const name = row.client_name?.trim()
-  const code = row.client_code?.trim()
-  if (name && code) return `${name} (${code})`
-  if (name) return name
-  if (code) return code
-  return row.client_id
-}
-
-function invoiceNumberDisplay(row: InvoiceListItem): string {
-  return row.invoice_number?.trim() || row.id
-}
-
-function paymentRefDisplay(row: InvoiceListItem): string {
-  if (row.payment_reference?.trim()) return row.payment_reference.trim()
-  if (row.bank_account_id) return "Bank account on file"
-  return "—"
 }
 
 type InvoicesPageProps = {
@@ -75,11 +62,22 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
   const { rows, source, canMutate } = await getInvoices({ includeCancelled })
   const supabaseConfigured = hasSupabaseEnv()
 
+  const kpis = buildInvoiceKpis(rows)
+  const focusItems = buildCollectionFocusItems(rows)
+  const lifecycleStages = buildLifecycleStages(rows)
+  const proofChecklist = buildProofChecklistOverview(rows)
+
+  const registerDescription = includeCancelled
+    ? "Including cancelled / soft-deleted rows."
+    : source === "database"
+      ? "Active invoices from Supabase. Client column uses presentation labels."
+      : "Mock register for local development. Client column uses presentation labels."
+
   return (
     <div className="space-y-8">
       <PageHeader
         title="Invoices"
-        description={`BMF client (${CLIENT_LABEL}) · third-of-month periods T01–T03 · €15/hr reference.`}
+        description="Track invoice status, collections, and proof readiness."
         actions={
           canMutate ? (
             <Link
@@ -96,118 +94,175 @@ export default async function InvoicesPage({ searchParams }: InvoicesPageProps) 
         <PageAlert>Invoice cancelled.</PageAlert>
       ) : null}
 
-      <DataSourceNote
-        supabaseConfigured={supabaseConfigured}
-        source={source}
-        sourceLabel={
-          source === "database"
-            ? "invoices (+ clients join)"
-            : "built-in mock register"
-        }
-        canMutate={canMutate}
-      />
+      <div className="rounded-af-card border border-af-border bg-af-surface/80 px-4 py-3 shadow-af-card">
+        <DataSourceNote
+          supabaseConfigured={supabaseConfigured}
+          source={source}
+          sourceLabel={
+            source === "database"
+              ? "invoices (+ clients join)"
+              : "built-in mock register"
+          }
+          canMutate={canMutate}
+        />
+      </div>
 
-      <SectionCard
-        title="Invoice register"
-        description={
-          includeCancelled
-            ? "Including cancelled / soft-deleted rows."
-            : source === "database"
-              ? "Active invoices from Supabase. Amounts use each row’s currency."
-              : "Mock line items for local development. Amounts in EUR."
-        }
-        action={
-          <Link
-            href={
-              includeCancelled
-                ? "/invoices"
-                : "/invoices?showCancelled=1"
-            }
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-          >
-            {includeCancelled ? "Hide cancelled" : "Show cancelled"}
-          </Link>
-        }
+      <section
+        className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
+        aria-label="Invoice summary"
       >
-        {rows.length === 0 ? (
-          <EmptyTableState message="No invoices to show. Add one when Supabase is connected, or check Show cancelled." />
-        ) : (
-        <DataTable className="min-w-[68rem]">
-          <DataTableHeader>
-            <tr>
-              <DataTableTh>Invoice #</DataTableTh>
-              <DataTableTh>Client</DataTableTh>
-              <DataTableTh>Period</DataTableTh>
-              <DataTableTh>Month / year</DataTableTh>
-              <DataTableTh align="right">Hours</DataTableTh>
-              <DataTableTh align="right">Rate</DataTableTh>
-              <DataTableTh align="right">Amount</DataTableTh>
-              <DataTableTh>Status</DataTableTh>
-              <DataTableTh>Sent</DataTableTh>
-              <DataTableTh>Paid</DataTableTh>
-              <DataTableTh>Payment ref</DataTableTh>
-              <DataTableTh align="right">Actions</DataTableTh>
-            </tr>
-          </DataTableHeader>
-          <DataTableBody>
-            {rows.map((row) => (
-              <tr key={row.id} className={dataTableRowClassName}>
-                <DataTableTd className="font-mono text-xs text-muted-foreground">
-                  {invoiceNumberDisplay(row)}
-                </DataTableTd>
-                <DataTableTd className="font-medium">{clientLabel(row)}</DataTableTd>
-                <DataTableTd>{formatPeriodLabel(row)}</DataTableTd>
-                <DataTableTd className="tabular-nums text-muted-foreground">
-                  {formatMonthYear(row)}
-                </DataTableTd>
-                <DataTableTd align="right" className="tabular-nums">
-                  {row.hours != null
-                    ? row.hours.toLocaleString("en-IE", {
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 2,
-                      })
-                    : "—"}
-                </DataTableTd>
-                <DataTableTd align="right" className="tabular-nums">
-                  {row.hourly_rate != null
-                    ? formatMoney(row.hourly_rate, row.currency)
-                    : "—"}
-                </DataTableTd>
-                <DataTableTd align="right" className="font-medium tabular-nums">
-                  {formatMoney(row.amount, row.currency)}
-                </DataTableTd>
-                <DataTableTd>
-                  <StatusBadge status={row.status} />
-                </DataTableTd>
-                <DataTableTd className="tabular-nums text-muted-foreground">
-                  {row.sent_date ?? "—"}
-                </DataTableTd>
-                <DataTableTd className="tabular-nums text-muted-foreground">
-                  {row.paid_date ? (
-                    row.paid_date
-                  ) : (
-                    <span className="italic text-muted-foreground/80">
-                      Pending
-                    </span>
-                  )}
-                </DataTableTd>
-                <DataTableTd className="max-w-[10rem] truncate text-muted-foreground">
-                  {paymentRefDisplay(row)}
-                </DataTableTd>
-                <DataTableTd align="right">
-                  <Link
-                    href={`/invoices/${row.id}/edit`}
-                    className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-                  >
-                    {canMutate ? "Edit" : "View"}
-                  </Link>
-                </DataTableTd>
-              </tr>
-            ))}
-          </DataTableBody>
-        </DataTable>
-        )}
-      </SectionCard>
+        <PremiumKpiCard
+          label="Total Invoiced"
+          value={formatCompactEur(kpis.totalInvoicedEur)}
+          icon={<Receipt aria-hidden />}
+          badge="Active"
+          helper="Excludes cancelled"
+          variant="blue"
+        />
+        <PremiumKpiCard
+          label="Paid Invoices"
+          value={String(kpis.paidCount)}
+          icon={<CheckCircle2 aria-hidden />}
+          badge="Collected"
+          helper="Status paid"
+          variant="green"
+        />
+        <PremiumKpiCard
+          label="Pending Collection"
+          value={formatCompactEur(kpis.pendingCollectionEur)}
+          icon={<Clock aria-hidden />}
+          badge="Outstanding"
+          helper="Sent or overdue"
+          variant="amber"
+        />
+        <PremiumKpiCard
+          label="Overdue Amount"
+          value={formatCompactEur(kpis.overdueAmountEur)}
+          icon={<AlertCircle aria-hidden />}
+          badge="Attention"
+          helper="Past due"
+          variant="red"
+        />
+        <PremiumKpiCard
+          label="Proof Completion"
+          value={`${kpis.proofCompletionPercent}%`}
+          icon={<FileCheck aria-hidden />}
+          badge="Readiness"
+          helper="Avg checklist score"
+          variant="teal"
+        />
+      </section>
+
+      <InvoicesLifecycle stages={lifecycleStages} />
+
+      <div className="grid gap-6 xl:grid-cols-3">
+        <InvoicePanelCard
+          className="xl:col-span-2"
+          title="Invoices Register"
+          description="Monitor invoice lifecycle, payment status, and proof readiness."
+          action={
+            <Link
+              href={includeCancelled ? "/invoices" : "/invoices?showCancelled=1"}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              {includeCancelled ? "Hide cancelled" : "Show cancelled"}
+            </Link>
+          }
+        >
+          <p className="mb-4 text-af-helper text-af-text-secondary">
+            {registerDescription}
+          </p>
+          {rows.length === 0 ? (
+            <EmptyTableState message="No invoices to show. Add one when Supabase is connected, or check Show cancelled." />
+          ) : (
+            <div className="overflow-x-auto">
+              <DataTable className="min-w-4xl border-0 bg-transparent shadow-none">
+                <DataTableHeader>
+                  <tr>
+                    <DataTableTh>Invoice ID</DataTableTh>
+                    <DataTableTh>Client</DataTableTh>
+                    <DataTableTh>Period</DataTableTh>
+                    <DataTableTh>Issue / Sent</DataTableTh>
+                    <DataTableTh>Due Date</DataTableTh>
+                    <DataTableTh align="right">Amount</DataTableTh>
+                    <DataTableTh>Status</DataTableTh>
+                    <DataTableTh>Payment</DataTableTh>
+                    <DataTableTh>Proof</DataTableTh>
+                    <DataTableTh align="right">Actions</DataTableTh>
+                  </tr>
+                </DataTableHeader>
+                <DataTableBody>
+                  {rows.map((row) => (
+                    <InvoiceRegisterRow
+                      key={row.id}
+                      row={row}
+                      canMutate={canMutate}
+                    />
+                  ))}
+                </DataTableBody>
+              </DataTable>
+            </div>
+          )}
+        </InvoicePanelCard>
+
+        <div className="space-y-6">
+          <InvoicesCollectionFocus items={focusItems} />
+          <InvoicesProofChecklist items={proofChecklist} />
+        </div>
+      </div>
+
+      <p className="flex items-center gap-2 text-af-helper text-af-text-muted">
+        <Wallet className="size-3.5 shrink-0" aria-hidden />
+        Register client names are presentation-only (Client Alpha–Delta). KPI totals and
+        lifecycle counts are derived from the current list. Forms still use real client
+        options when Supabase is connected.
+      </p>
     </div>
+  )
+}
+
+function InvoiceRegisterRow({
+  row,
+  canMutate,
+}: {
+  row: InvoiceListItem
+  canMutate: boolean
+}) {
+  return (
+    <tr className={dataTableRowClassName}>
+      <DataTableTd className="font-mono text-xs text-af-text-secondary">
+        {invoiceNumberDisplay(row)}
+      </DataTableTd>
+      <DataTableTd className="font-medium text-af-text-primary">
+        {displayClientLabel(row)}
+      </DataTableTd>
+      <DataTableTd className="text-af-text-primary">{formatPeriodLabel(row)}</DataTableTd>
+      <DataTableTd className="tabular-nums text-af-text-secondary">
+        {row.sent_date ?? "—"}
+      </DataTableTd>
+      <DataTableTd className="tabular-nums text-af-text-secondary">
+        {row.due_date ?? "—"}
+      </DataTableTd>
+      <DataTableTd align="right" className="font-medium tabular-nums text-af-text-primary">
+        {formatMoney(row.amount, row.currency)}
+      </DataTableTd>
+      <DataTableTd>
+        <SoftStatusBadge status={invoiceStatusToSoftToken(row.status)} />
+      </DataTableTd>
+      <DataTableTd>
+        <SoftStatusBadge status={paymentSoftStatus(row)} />
+      </DataTableTd>
+      <DataTableTd>
+        <InvoiceProofCompact percent={proofPercent(row)} />
+      </DataTableTd>
+      <DataTableTd align="right">
+        <Link
+          href={`/invoices/${row.id}/edit`}
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+        >
+          {canMutate ? "Edit" : "View"}
+        </Link>
+      </DataTableTd>
+    </tr>
   )
 }

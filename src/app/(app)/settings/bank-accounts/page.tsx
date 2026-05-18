@@ -1,19 +1,27 @@
 import Link from "next/link"
 
-import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
+import { SoftStatusBadge } from "@/components/design-system"
 import {
   DataTable,
   DataTableBody,
   DataTableHeader,
   DataTableTd,
   DataTableTh,
+  dataTableRowClassName,
 } from "@/components/shell/data-table"
 import { DataSourceNote } from "@/components/shell/data-source-note"
+import { EmptyTableState } from "@/components/shell/empty-table-state"
 import { PageAlert } from "@/components/shell/page-alert"
 import { PageHeader } from "@/components/shell/page-header"
-import { SectionCard } from "@/components/shell/section-card"
+import { SettingsPanelCard } from "@/components/settings/settings-panel-card"
+import { buttonVariants } from "@/components/ui/button"
 import { getBankAccountsForManage } from "@/lib/data/bank-accounts"
+import {
+  bankStatusToken,
+  displayAccountLabel,
+  displayInstitutionLabel,
+  displayMaskedId,
+} from "@/lib/settings/presentation"
 import { hasSupabaseEnv } from "@/lib/supabase/env"
 import { cn } from "@/lib/utils"
 
@@ -37,7 +45,7 @@ export default async function BankAccountsManagePage({
     <div className="space-y-8">
       <PageHeader
         title="Bank accounts"
-        description="Flexible account records with masked identifiers only. HSBC Malta is the primary client invoice payment account; Wise is not the default for new invoices."
+        description="Flexible account records with masked identifiers only. Presentation labels applied in the register."
         actions={
           canMutate ? (
             <Link
@@ -54,17 +62,19 @@ export default async function BankAccountsManagePage({
         <PageAlert>Bank account deactivated.</PageAlert>
       ) : null}
 
-      <DataSourceNote
-        supabaseConfigured={supabaseConfigured}
-        source={source}
-        sourceLabel={
-          source === "database" ? "bank_accounts table" : "built-in fallback"
-        }
-        canMutate={canMutate}
-        variant="compact"
-      />
+      <div className="rounded-af-card border border-af-border bg-af-surface/80 px-4 py-3 shadow-af-card">
+        <DataSourceNote
+          supabaseConfigured={supabaseConfigured}
+          source={source}
+          sourceLabel={
+            source === "database" ? "bank_accounts table" : "built-in fallback"
+          }
+          canMutate={canMutate}
+          variant="compact"
+        />
+      </div>
 
-      <SectionCard
+      <SettingsPanelCard
         title="Accounts"
         description={
           includeInactive
@@ -85,64 +95,57 @@ export default async function BankAccountsManagePage({
         }
       >
         {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No bank accounts yet.{" "}
-            {canMutate ? (
-              <Link
-                href="/settings/bank-accounts/new"
-                className="text-primary underline-offset-4 hover:underline"
-              >
-                Add the first account
-              </Link>
-            ) : (
-              "Connect Supabase to add accounts."
-            )}
-          </p>
+          <EmptyTableState
+            message={
+              canMutate
+                ? "No bank accounts yet. Add the first account."
+                : "No accounts to show. Connect Supabase to add accounts."
+            }
+          />
         ) : (
-          <DataTable>
-            <DataTableHeader>
-              <tr>
-                <DataTableTh>Account</DataTableTh>
-                <DataTableTh>Institution</DataTableTh>
-                <DataTableTh>Masked ID</DataTableTh>
-                <DataTableTh>CCY</DataTableTh>
-                <DataTableTh>Status</DataTableTh>
-                <DataTableTh align="right">Actions</DataTableTh>
-              </tr>
-            </DataTableHeader>
-            <DataTableBody>
-              {rows.map((b) => (
-                <tr
-                  key={b.id}
-                  className="border-b border-border/40 transition-colors hover:bg-muted/15 last:border-b-0"
-                >
-                  <DataTableTd className="font-medium">{b.account_name}</DataTableTd>
-                  <DataTableTd>{b.institution_name}</DataTableTd>
-                  <DataTableTd className="font-mono text-xs text-muted-foreground">
-                    {b.iban_masked ?? "—"}
-                  </DataTableTd>
-                  <DataTableTd>{b.currency}</DataTableTd>
-                  <DataTableTd>
-                    {b.active && !b.deleted_at ? (
-                      <Badge variant="secondary">Active</Badge>
-                    ) : (
-                      <Badge variant="outline">Inactive</Badge>
-                    )}
-                  </DataTableTd>
-                  <DataTableTd align="right">
-                    <Link
-                      href={`/settings/bank-accounts/${b.id}/edit`}
-                      className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-                    >
-                      {canMutate ? "Edit" : "View"}
-                    </Link>
-                  </DataTableTd>
+          <div className="overflow-x-auto">
+            <DataTable className="min-w-4xl border-0 bg-transparent shadow-none">
+              <DataTableHeader>
+                <tr>
+                  <DataTableTh>Account</DataTableTh>
+                  <DataTableTh>Institution</DataTableTh>
+                  <DataTableTh>Masked ID</DataTableTh>
+                  <DataTableTh>Currency</DataTableTh>
+                  <DataTableTh>Status</DataTableTh>
+                  <DataTableTh align="right">Actions</DataTableTh>
                 </tr>
-              ))}
-            </DataTableBody>
-          </DataTable>
+              </DataTableHeader>
+              <DataTableBody>
+                {rows.map((b) => (
+                  <tr key={b.id} className={dataTableRowClassName}>
+                    <DataTableTd className="font-medium text-af-text-primary">
+                      {displayAccountLabel(b)}
+                    </DataTableTd>
+                    <DataTableTd className="text-af-text-secondary">
+                      {displayInstitutionLabel(b)}
+                    </DataTableTd>
+                    <DataTableTd className="font-mono text-xs text-af-text-muted">
+                      {displayMaskedId(b)}
+                    </DataTableTd>
+                    <DataTableTd>{b.currency}</DataTableTd>
+                    <DataTableTd>
+                      <SoftStatusBadge status={bankStatusToken(b)} />
+                    </DataTableTd>
+                    <DataTableTd align="right">
+                      <Link
+                        href={`/settings/bank-accounts/${b.id}/edit`}
+                        className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                      >
+                        {canMutate ? "Edit" : "View"}
+                      </Link>
+                    </DataTableTd>
+                  </tr>
+                ))}
+              </DataTableBody>
+            </DataTable>
+          </div>
         )}
-      </SectionCard>
+      </SettingsPanelCard>
 
       <Link
         href="/settings"

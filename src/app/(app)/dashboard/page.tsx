@@ -1,38 +1,46 @@
-import { format } from "date-fns"
+import Link from "next/link"
 import {
-  AlertCircle,
   ArrowRightLeft,
   CalendarClock,
-  ClipboardList,
-  IndianRupee,
-  Landmark,
+  CheckCircle2,
+  FileText,
   PiggyBank,
   TrendingUp,
+  Wallet,
 } from "lucide-react"
-import Link from "next/link"
 
-import { StatCard } from "@/components/dashboard/stat-card"
-import { buttonVariants } from "@/components/ui/button"
+import { DashboardComplianceTasks } from "@/components/dashboard/dashboard-compliance-tasks"
+import { DashboardMonthlyClose } from "@/components/dashboard/dashboard-monthly-close"
+import { DashboardPanelCard } from "@/components/dashboard/dashboard-panel-card"
+import { DashboardQuickActions } from "@/components/dashboard/dashboard-quick-actions"
+import { ExpenseBreakdownChart } from "@/components/dashboard/expense-breakdown-chart"
+import { FinanceSnapshotCard } from "@/components/dashboard/finance-snapshot-card"
+import { RevenueVsExpensesChart } from "@/components/dashboard/revenue-vs-expenses-chart"
+import { PremiumKpiCard, SoftStatusBadge } from "@/components/design-system"
 import {
   DataTable,
   DataTableBody,
   DataTableHeader,
   DataTableTd,
   DataTableTh,
+  dataTableRowClassName,
 } from "@/components/shell/data-table"
 import { DataSourceNote } from "@/components/shell/data-source-note"
 import { PageHeader } from "@/components/shell/page-header"
-import { SectionCard } from "@/components/shell/section-card"
-import { StatusBadge } from "@/components/shell/status-badge"
+import { buttonVariants } from "@/components/ui/button"
 import {
-  CLIENT_LABEL,
-  HOURLY_RATE_EUR,
-  REVENUE_TYPICAL_HIGH_EUR,
-  REVENUE_TYPICAL_LOW_EUR,
-} from "@/data/mock/constants"
+  KPI_TRENDS,
+  buildExpenseBreakdown,
+  buildRevenueExpenseChartSeries,
+  financeStatusToSoftToken,
+  getComplianceTasksWithStatus,
+  getFinanceSnapshot,
+  getPendingInvoicesPresentation,
+  getRecentPaymentsPresentation,
+} from "@/lib/dashboard/presentation"
 import { getDashboardSummary } from "@/lib/data/dashboard"
+import { formatCompactEur, formatEur } from "@/lib/format"
 import { hasSupabaseEnv } from "@/lib/supabase/env"
-import { formatCompactEur, formatEur, formatInr } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
@@ -40,175 +48,232 @@ export const dynamic = "force-dynamic"
 export default async function DashboardPage() {
   const { summary, source } = await getDashboardSummary()
   const supabaseConfigured = hasSupabaseEnv()
-  const today = new Date()
-  const asOf = format(today, "d MMM yyyy")
-  const rateLabel = Math.round(summary.exchangeRateInrPerEur)
+
+  const chartSeries = buildRevenueExpenseChartSeries(summary)
+  const pendingInvoices = getPendingInvoicesPresentation(summary)
+  const recentPayments = getRecentPaymentsPresentation()
+  const complianceTasks = getComplianceTasksWithStatus(summary)
+  const expenseBreakdown = buildExpenseBreakdown(summary)
+  const snapshot = getFinanceSnapshot(summary)
 
   return (
-    <div className="space-y-10">
-      <PageHeader
-        title="Dashboard"
-        description={`Calm overview for ${CLIENT_LABEL} — billable €${HOURLY_RATE_EUR}/h, planning rate ₹${rateLabel}/€. Figures as of ${asOf}.`}
-        actions={
-          <Link
-            href="/reports"
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+    <div className="-mx-4 -mt-4 min-h-[calc(100svh-var(--af-header-height))] bg-af-soft-gray md:-mx-6 md:-mt-6 lg:-mx-8 lg:-mt-8">
+      <div className="mx-auto max-w-[1440px] space-y-6 p-4 md:space-y-8 md:p-6 lg:p-8">
+        <PageHeader
+          title="Dashboard"
+          description="Founder overview — revenue, expenses, and operational health at a glance."
+        />
+
+        <div className="rounded-af-card border border-af-border bg-af-surface/80 px-4 py-3 shadow-af-card">
+          <DataSourceNote
+            supabaseConfigured={supabaseConfigured}
+            source={source}
+            sourceLabel={
+              source === "database"
+                ? "aggregates from invoices, expenses, salary_payments, tasks, exchange_rates"
+                : "mock figures + presentation tables"
+            }
+          />
+        </div>
+
+        <section
+          className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3"
+          aria-label="Key performance indicators"
+        >
+          <PremiumKpiCard
+            label="Revenue This Month"
+            value={formatCompactEur(summary.revenueThisMonth)}
+            icon={<TrendingUp aria-hidden />}
+            badge={KPI_TRENDS.revenue.label}
+            helper="vs prior month (preview)"
+            variant="blue"
+          />
+          <PremiumKpiCard
+            label="Expenses This Month"
+            value={formatEur(summary.expensesThisMonth)}
+            icon={<PiggyBank aria-hidden />}
+            badge={KPI_TRENDS.expenses.label}
+            helper="Operating spend"
+            variant="amber"
+          />
+          <PremiumKpiCard
+            label="Net Profit"
+            value={formatEur(summary.estimatedProfitLoss)}
+            icon={<ArrowRightLeft aria-hidden />}
+            badge={KPI_TRENDS.profit.label}
+            helper="Estimated P&L"
+            variant="green"
+          />
+          <PremiumKpiCard
+            label="Pending Invoices"
+            value={String(summary.pendingInvoicesCount)}
+            icon={<FileText aria-hidden />}
+            badge={KPI_TRENDS.pendingInvoices.label}
+            helper="Awaiting collection"
+            variant="blue"
+          />
+          <PremiumKpiCard
+            label="Pending Payouts"
+            value={String(summary.pendingSalariesCount)}
+            icon={<Wallet aria-hidden />}
+            badge={KPI_TRENDS.pendingPayouts.label}
+            helper="Salary runs"
+            variant="amber"
+          />
+          <PremiumKpiCard
+            label="Upcoming Tasks"
+            value={String(summary.upcomingTasksCount)}
+            icon={<CalendarClock aria-hidden />}
+            badge={KPI_TRENDS.upcomingTasks.label}
+            helper="Due soon"
+            variant="teal"
+          />
+        </section>
+
+        <div className="grid gap-6 xl:grid-cols-3">
+          <DashboardPanelCard
+            className="xl:col-span-2"
+            title="Revenue vs Expenses"
+            description="Monthly financial performance"
           >
-            View reports
-          </Link>
-        }
-      />
+            <RevenueVsExpensesChart data={chartSeries} />
+          </DashboardPanelCard>
 
-      <DataSourceNote
-        supabaseConfigured={supabaseConfigured}
-        source={source}
-        sourceLabel={
-          source === "database"
-            ? "aggregates from invoices, expenses, salary_payments, tasks, exchange_rates"
-            : "mock figures + tables"
-        }
-      />
+          <div className="space-y-6">
+            <DashboardQuickActions />
+            <FinanceSnapshotCard
+              activeClients={snapshot.activeClients}
+              activeTeam={snapshot.activeTeam}
+              rebillablePendingEur={snapshot.rebillablePendingEur}
+              cashHealth={snapshot.cashHealth}
+            />
+            <DashboardMonthlyClose />
+          </div>
+        </div>
 
-      <section
-        className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
-        aria-label="Summary metrics"
-      >
-        <StatCard
-          title="Monthly revenue"
-          description={`Typical band ${formatCompactEur(REVENUE_TYPICAL_LOW_EUR)}–${formatCompactEur(REVENUE_TYPICAL_HIGH_EUR)}`}
-          value={formatCompactEur(summary.revenueThisMonth)}
-          hint="BMF · T01–T03 · accrual from invoiced (paid/sent/overdue) — payments not double-counted"
-          icon={TrendingUp}
-        />
-        <StatCard
-          title="Monthly expenses"
-          description="India EMI + Malta fixed + subs (from expense lines)"
-          value={formatEur(summary.expensesThisMonth)}
-          hint={`EMI ${formatEur(summary.expensesHintEmiEur)} · Malta ${formatEur(summary.expensesHintMaltaEur)} · Misc ${formatEur(summary.expensesHintMiscEur)}`}
-          icon={PiggyBank}
-        />
-        <StatCard
-          title="Est. profit / loss"
-          description="Revenue − expenses − salaries (EUR, salaries converted)"
-          value={formatEur(summary.estimatedProfitLoss)}
-          hint="Before tax · single-entity view"
-          icon={ArrowRightLeft}
-        />
-        <StatCard
-          title="Pending invoices"
-          description={summary.pendingInvoicesClientLabel}
-          value={`${summary.pendingInvoicesCount} · ${formatCompactEur(summary.pendingInvoicesAmount)}`}
-          hint="Sent or overdue, awaiting settlement"
-          icon={Landmark}
-        />
-        <StatCard
-          title="Pending salaries"
-          description={summary.pendingSalariesPeriodLabel}
-          value={`${summary.pendingSalariesCount} · ${formatInr(summary.pendingSalariesAmount)}`}
-          hint="India payroll — pending or partial runs"
-          icon={IndianRupee}
-        />
-        <StatCard
-          title="Compliance tasks"
-          description={`Next ${summary.complianceDueWithinDays} days`}
-          value={`${summary.upcomingTasksCount} open`}
-          hint={
-            summary.overdueTasksCount > 0
-              ? `Filings, payroll registers, renewals · ${summary.overdueTasksCount} overdue`
-              : "Filings, payroll registers, renewals"
-          }
-          icon={CalendarClock}
-        />
-      </section>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <SectionCard
-          title="Recent invoices"
-          description={
-            source === "database"
-              ? "Latest invoice rows by created time."
-              : "Latest BMF billing periods (mock ledger)."
-          }
-          action={
-            <Link
-              href="/invoices"
-              className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-            >
-              All invoices
-            </Link>
-          }
-        >
-          <DataTable>
-            <DataTableHeader>
-              <tr>
-                <DataTableTh>Period</DataTableTh>
-                <DataTableTh>Issued</DataTableTh>
-                <DataTableTh align="right">Amount</DataTableTh>
-                <DataTableTh>Status</DataTableTh>
-              </tr>
-            </DataTableHeader>
-            <DataTableBody>
-              {summary.recentInvoices.map((inv) => (
-                <tr
-                  key={inv.id}
-                  className="border-b border-border/40 transition-colors hover:bg-muted/15 last:border-b-0"
-                >
-                  <DataTableTd className="font-medium">{inv.period}</DataTableTd>
-                  <DataTableTd className="tabular-nums text-muted-foreground">
-                    {inv.issued}
-                  </DataTableTd>
-                  <DataTableTd align="right" className="font-medium tabular-nums">
-                    {formatEur(inv.amountEur)}
-                  </DataTableTd>
-                  <DataTableTd>
-                    <StatusBadge status={inv.status} />
-                  </DataTableTd>
-                </tr>
-              ))}
-            </DataTableBody>
-          </DataTable>
-        </SectionCard>
-
-        <SectionCard
-          title="Upcoming compliance"
-          description={
-            source === "database"
-              ? "Next tasks by due date (read-only)."
-              : "Tasks with due dates (mock)."
-          }
-          action={
-            <Link
-              href="/tasks"
-              className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-            >
-              All tasks
-            </Link>
-          }
-        >
-          <ul className="space-y-3">
-            {summary.upcomingTasks.map((task) => (
-              <li
-                key={task.id}
-                className="flex items-start justify-between gap-3 rounded-lg border border-border/50 bg-muted/10 px-3 py-2.5"
+        <div className="grid gap-6 xl:grid-cols-2">
+          <DashboardPanelCard
+            title="Pending Invoices"
+            description="Invoices awaiting payment"
+            action={
+              <Link
+                href="/invoices"
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
               >
-                <div className="min-w-0 space-y-0.5">
-                  <p className="text-sm font-medium leading-snug">{task.title}</p>
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <ClipboardList className="size-3.5 shrink-0" aria-hidden />
-                    <span className="tabular-nums">Due {task.due}</span>
-                    <span className="text-border">·</span>
-                    <span>{task.owner ?? "—"}</span>
-                  </p>
-                </div>
-                <StatusBadge status={task.status} />
-              </li>
-            ))}
-          </ul>
-          <p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-            <AlertCircle className="size-3.5 shrink-0" aria-hidden />
-            Workspace recovery pending {formatEur(summary.workspaceRecoveryPending)} — bill separately when agreed.
-          </p>
-        </SectionCard>
+                View all
+              </Link>
+            }
+          >
+            <div className="overflow-x-auto">
+              <DataTable className="min-w-xl border-0 bg-transparent shadow-none">
+                <DataTableHeader>
+                  <tr>
+                    <DataTableTh>Invoice ID</DataTableTh>
+                    <DataTableTh>Client</DataTableTh>
+                    <DataTableTh align="right">Amount</DataTableTh>
+                    <DataTableTh>Due Date</DataTableTh>
+                    <DataTableTh>Status</DataTableTh>
+                  </tr>
+                </DataTableHeader>
+                <DataTableBody>
+                  {pendingInvoices.map((row) => (
+                    <tr key={row.id} className={dataTableRowClassName}>
+                      <DataTableTd className="font-mono text-xs text-af-text-secondary">
+                        {row.id}
+                      </DataTableTd>
+                      <DataTableTd className="font-medium text-af-text-primary">
+                        {row.client}
+                      </DataTableTd>
+                      <DataTableTd
+                        align="right"
+                        className="font-medium tabular-nums text-af-text-primary"
+                      >
+                        {formatEur(row.amountEur)}
+                      </DataTableTd>
+                      <DataTableTd className="tabular-nums text-af-text-secondary">
+                        {row.dueDate}
+                      </DataTableTd>
+                      <DataTableTd>
+                        <SoftStatusBadge status={financeStatusToSoftToken(row.status)} />
+                      </DataTableTd>
+                    </tr>
+                  ))}
+                </DataTableBody>
+              </DataTable>
+            </div>
+          </DashboardPanelCard>
+
+          <DashboardComplianceTasks tasks={complianceTasks} />
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-2">
+          <DashboardPanelCard
+            title="Recent Payments"
+            description="Latest payment activity"
+            action={
+              <Link
+                href="/payments"
+                className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+              >
+                View all
+              </Link>
+            }
+          >
+            <div className="overflow-x-auto">
+              <DataTable className="min-w-xl border-0 bg-transparent shadow-none">
+                <DataTableHeader>
+                  <tr>
+                    <DataTableTh>Date</DataTableTh>
+                    <DataTableTh>Type</DataTableTh>
+                    <DataTableTh align="right">Amount</DataTableTh>
+                    <DataTableTh>Account</DataTableTh>
+                    <DataTableTh>Status</DataTableTh>
+                  </tr>
+                </DataTableHeader>
+                <DataTableBody>
+                  {recentPayments.map((row, i) => (
+                    <tr key={`${row.date}-${i}`} className={dataTableRowClassName}>
+                      <DataTableTd className="tabular-nums text-af-text-secondary">
+                        {row.date}
+                      </DataTableTd>
+                      <DataTableTd className="text-af-text-primary">{row.type}</DataTableTd>
+                      <DataTableTd
+                        align="right"
+                        className="font-medium tabular-nums text-af-text-primary"
+                      >
+                        {formatEur(row.amountEur)}
+                      </DataTableTd>
+                      <DataTableTd className="text-af-text-secondary">
+                        {row.account}
+                      </DataTableTd>
+                      <DataTableTd>
+                        <SoftStatusBadge
+                          status={financeStatusToSoftToken(row.status)}
+                        />
+                      </DataTableTd>
+                    </tr>
+                  ))}
+                </DataTableBody>
+              </DataTable>
+            </div>
+          </DashboardPanelCard>
+
+          <DashboardPanelCard
+            title="Expense Breakdown"
+            description="Current month distribution"
+          >
+            <ExpenseBreakdownChart data={expenseBreakdown} />
+          </DashboardPanelCard>
+        </div>
+
+        <p className="flex items-center gap-2 text-af-helper text-af-text-muted">
+          <CheckCircle2
+            className="size-3.5 shrink-0 text-af-success"
+            aria-hidden
+          />
+          Dashboard tables and task labels use presentation-only dummy data. KPI totals
+          reflect your configured data source when available.
+        </p>
       </div>
     </div>
   )

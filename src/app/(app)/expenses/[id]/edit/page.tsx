@@ -2,7 +2,9 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 
 import { ExpenseForm } from "@/components/expenses/expense-form"
+import { PageAlert } from "@/components/shell/page-alert"
 import { PageHeader } from "@/components/shell/page-header"
+import { displayVendorLabel } from "@/lib/expenses/presentation"
 import { buttonVariants } from "@/components/ui/button"
 import { getExpenseById, getExpenseFormOptions } from "@/lib/data/expenses"
 import { expenseToFormDefaults } from "@/lib/forms/expense-form-defaults"
@@ -35,14 +37,10 @@ export default async function EditExpensePage({
     <div className="space-y-8">
       <PageHeader
         title={canMutate ? "Edit expense" : "View expense"}
-        description={row.name}
+        description={`${displayVendorLabel(row)} — expense line item.`}
       />
 
-      {query.saved === "1" ? (
-        <p className="rounded-lg border border-border/80 bg-muted/30 px-3 py-2 text-sm text-foreground">
-          Changes saved.
-        </p>
-      ) : null}
+      {query.saved === "1" ? <PageAlert>Changes saved.</PageAlert> : null}
 
       <ExpenseForm
         mode="edit"

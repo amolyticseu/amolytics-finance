@@ -1,8 +1,10 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
-import { ClientForm } from "@/components/clients/client-form"
+import { PageAlert } from "@/components/shell/page-alert"
 import { PageHeader } from "@/components/shell/page-header"
+import { ClientForm } from "@/components/clients/client-form"
+import { displayClientLabel } from "@/lib/settings/presentation"
 import { buttonVariants } from "@/components/ui/button"
 import { clientToFormDefaults } from "@/lib/forms/client-form-defaults"
 import { getClientById } from "@/lib/data/clients"
@@ -29,14 +31,10 @@ export default async function EditClientPage({
     <div className="space-y-8">
       <PageHeader
         title={canMutate ? "Edit client" : "View client"}
-        description={`${row.code} · ${row.name}`}
+        description={`${displayClientLabel(row)} — billing client profile.`}
       />
 
-      {query.saved === "1" ? (
-        <p className="rounded-lg border border-border/80 bg-muted/30 px-3 py-2 text-sm text-foreground">
-          Changes saved.
-        </p>
-      ) : null}
+      {query.saved === "1" ? <PageAlert>Changes saved.</PageAlert> : null}
 
       <ClientForm
         mode="edit"

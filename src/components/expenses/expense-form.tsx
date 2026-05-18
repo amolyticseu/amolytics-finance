@@ -8,7 +8,7 @@ import { ActionBanner } from "@/components/forms/action-banner"
 import { ReadOnlyFallbackBanner } from "@/components/forms/read-only-fallback-banner"
 import { PageAlert } from "@/components/shell/page-alert"
 import { FormActions } from "@/components/forms/form-actions"
-import { FormSection } from "@/components/forms/form-section"
+import { ExpensePanelCard } from "@/components/expenses/expense-panel-card"
 import { LabeledField } from "@/components/forms/labeled-field"
 import { SubmitButton } from "@/components/forms/submit-button"
 import { buttonVariants } from "@/components/ui/button"
@@ -28,10 +28,10 @@ import {
 } from "@/lib/validation/expense-schema"
 
 const selectClassName =
-  "flex h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm dark:bg-input/30"
+  "flex h-9 w-full rounded-lg border border-af-border bg-af-surface px-2.5 text-sm text-af-text-primary shadow-none outline-none focus-visible:border-af-primary-blue focus-visible:ring-2 focus-visible:ring-af-primary-blue/20 disabled:opacity-50"
 
 const textareaClassName =
-  "flex w-full min-w-0 rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30"
+  "flex w-full min-w-0 rounded-lg border border-af-border bg-af-surface px-2.5 py-2 text-sm text-af-text-primary shadow-none outline-none focus-visible:border-af-primary-blue focus-visible:ring-2 focus-visible:ring-af-primary-blue/20 disabled:opacity-50"
 
 const CATEGORY_LABEL: Record<ExpenseCategoryDb, string> = {
   emi: "EMI",
@@ -122,7 +122,7 @@ export function ExpenseForm({
           <input type="hidden" name="id" value={defaultValues.id} />
         ) : null}
 
-        <FormSection
+        <ExpensePanelCard
           title="Expense details"
           description="Manual entry only — no CSV import or recurring automation."
         >
@@ -258,9 +258,9 @@ export function ExpenseForm({
               </select>
             </LabeledField>
           </div>
-        </FormSection>
+        </ExpensePanelCard>
 
-        <FormSection title="Links & reference">
+        <ExpensePanelCard title="Links & reference">
           <div className="grid gap-4 sm:grid-cols-2">
             <LabeledField
               label="Linked client"
@@ -331,7 +331,7 @@ export function ExpenseForm({
               />
             </LabeledField>
           </div>
-        </FormSection>
+        </ExpensePanelCard>
 
         <FormActions>
           <Link
@@ -347,7 +347,7 @@ export function ExpenseForm({
       </form>
 
       {mode === "edit" && canMutate && !isRemoved && defaultValues.id ? (
-        <FormSection
+        <ExpensePanelCard
           title="Cancel expense"
           description="Sets status to cancelled and soft-deletes from the active list. Does not create payment rows."
         >
@@ -357,7 +357,7 @@ export function ExpenseForm({
               Cancel / soft-delete expense
             </SubmitButton>
           </form>
-        </FormSection>
+        </ExpensePanelCard>
       ) : null}
     </div>
   )

@@ -1,8 +1,9 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
-import { TaskForm } from "@/components/tasks/task-form"
 import { PageHeader } from "@/components/shell/page-header"
+import { TaskForm } from "@/components/tasks/task-form"
+import { displayTaskTitle } from "@/lib/tasks/presentation"
 import { buttonVariants } from "@/components/ui/button"
 import { getTaskById } from "@/lib/data/tasks"
 import { taskToFormDefaults } from "@/lib/forms/task-form-defaults"
@@ -41,7 +42,7 @@ export default async function EditTaskPage({
     <div className="space-y-8">
       <PageHeader
         title={canMutate ? "Edit task" : "View task"}
-        description={row.title}
+        description={`${displayTaskTitle(row)} — compliance or operations checkpoint.`}
       />
 
       <TaskForm

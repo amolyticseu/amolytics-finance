@@ -1,8 +1,10 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
-import { TeamMemberForm } from "@/components/team/team-member-form"
+import { PageAlert } from "@/components/shell/page-alert"
 import { PageHeader } from "@/components/shell/page-header"
+import { TeamMemberForm } from "@/components/team/team-member-form"
+import { displayMemberLabel } from "@/lib/team/presentation"
 import { buttonVariants } from "@/components/ui/button"
 import { getTeamMemberById } from "@/lib/data/team"
 import { teamMemberToFormDefaults } from "@/lib/forms/team-member-form-defaults"
@@ -29,14 +31,10 @@ export default async function EditTeamMemberPage({
     <div className="space-y-8">
       <PageHeader
         title={canMutate ? "Edit team member" : "View team member"}
-        description={row.name}
+        description={`${displayMemberLabel(row)} — roster profile and payout details.`}
       />
 
-      {query.saved === "1" ? (
-        <p className="rounded-lg border border-border/80 bg-muted/30 px-3 py-2 text-sm text-foreground">
-          Changes saved.
-        </p>
-      ) : null}
+      {query.saved === "1" ? <PageAlert>Changes saved.</PageAlert> : null}
 
       <TeamMemberForm
         mode="edit"

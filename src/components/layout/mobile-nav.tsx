@@ -13,12 +13,16 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
+import { InternalFinanceCard } from "@/components/layout/internal-finance-card"
+import { SidebarBrand } from "@/components/layout/sidebar-brand"
+import { shellNavLinkClass } from "@/components/layout/shell-nav-styles"
 import { appNavItems } from "@/lib/navigation"
-import { cn } from "@/lib/utils"
 
 export function MobileNav() {
   const pathname = usePathname()
   const [open, setOpen] = React.useState(false)
+
+  const close = () => setOpen(false)
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -27,18 +31,25 @@ export function MobileNav() {
           <Button
             variant="outline"
             size="icon-sm"
-            className="lg:hidden"
+            className="border-af-border bg-af-surface shadow-none"
             aria-label="Open menu"
           />
         }
       >
-        <MenuIcon className="size-4" />
+        <MenuIcon className="size-4" aria-hidden />
       </SheetTrigger>
-      <SheetContent side="left" className="flex w-72 flex-col p-0">
-        <SheetHeader className="border-b border-border p-4 text-left">
-          <SheetTitle className="font-heading text-sm">Amolytics Finance</SheetTitle>
+      <SheetContent
+        side="left"
+        className="flex w-[min(100vw,var(--af-sidebar-width))] max-w-[20rem] flex-col border-af-border bg-af-surface p-0 sm:w-[var(--af-sidebar-width)]"
+      >
+        <SheetHeader className="sr-only">
+          <SheetTitle>Navigation</SheetTitle>
         </SheetHeader>
-        <nav className="flex flex-col gap-0.5 p-3" aria-label="Mobile main">
+        <SidebarBrand onNavigate={close} className="border-b border-af-border" />
+        <nav
+          className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3"
+          aria-label="Mobile main"
+        >
           {appNavItems.map((item) => {
             const Icon = item.icon
             const isActive =
@@ -51,23 +62,19 @@ export function MobileNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => setOpen(false)}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-foreground/80 hover:bg-muted"
-                )}
+                onClick={close}
+                className={shellNavLinkClass(isActive)}
               >
-                <Icon className="size-4 shrink-0 opacity-70" aria-hidden />
+                <Icon className="size-4 shrink-0" aria-hidden />
                 {item.title}
               </Link>
             )
           })}
         </nav>
-        <p className="mt-auto border-t border-border p-4 text-xs text-muted-foreground">
-          BMF · €15/hr · T01–T03
-        </p>
+        <div className="mt-auto space-y-3 border-t border-af-border p-4">
+          <InternalFinanceCard compact />
+          <p className="text-xs text-af-text-muted">BMF · €15/hr · T01–T03</p>
+        </div>
       </SheetContent>
     </Sheet>
   )

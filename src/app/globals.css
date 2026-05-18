@@ -4,7 +4,13 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* =============================================================================
+   Amolytics Finance — design tokens (Phase 1)
+   Semantic tokens use --af-*; shadcn/Tailwind aliases below map to these values.
+   ============================================================================= */
+
 @theme inline {
+  /* --- shadcn / Tailwind v4 (existing mappings) --- */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
@@ -46,75 +52,198 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* --- Amolytics palette (optional Tailwind utilities: bg-af-surface, etc.) --- */
+  --color-af-bg: var(--af-bg);
+  --color-af-surface: var(--af-surface);
+  --color-af-text-primary: var(--af-text-primary);
+  --color-af-text-secondary: var(--af-text-secondary);
+  --color-af-text-muted: var(--af-text-muted);
+  --color-af-border: var(--af-border);
+  --color-af-primary-blue: var(--af-primary-blue);
+  --color-af-secondary-teal: var(--af-secondary-teal);
+  --color-af-success: var(--af-success);
+  --color-af-warning: var(--af-warning);
+  --color-af-danger: var(--af-danger);
+  --color-af-info: var(--af-info);
+  --color-af-purple: var(--af-purple);
+  --color-af-soft-blue: var(--af-soft-blue);
+  --color-af-soft-green: var(--af-soft-green);
+  --color-af-soft-amber: var(--af-soft-amber);
+  --color-af-soft-red: var(--af-soft-red);
+  --color-af-soft-purple: var(--af-soft-purple);
+  --color-af-soft-teal: var(--af-soft-teal);
+  --color-af-soft-gray: var(--af-soft-gray);
+
+  /* Card radius utility (20px) — use rounded-af-card in later phases */
+  --radius-af-card: var(--af-radius-card);
+  --radius-af-badge: var(--af-radius-badge);
+  --radius-af-sidebar-active: var(--af-radius-sidebar-active);
+
+  /* Typography utilities — use text-af-helper, text-af-section-title, etc. */
+  --text-af-page-title: var(--af-font-page-title);
+  --text-af-page-title-lg: var(--af-font-page-title-lg);
+  --text-af-section-title: var(--af-font-section-title);
+  --text-af-kpi-value: var(--af-font-kpi-value);
+  --text-af-table-header: var(--af-font-table-header);
+  --text-af-table-body: var(--af-font-table-body);
+  --text-af-helper: var(--af-font-helper);
+
+  --leading-af-page-title: var(--af-leading-page-title);
+  --leading-af-section: var(--af-leading-section);
+  --leading-af-helper: var(--af-leading-helper);
+
+  /* Shadow utilities — use shadow-af-card, etc. */
+  --shadow-af-card: var(--af-shadow-card);
+  --shadow-af-card-hover: var(--af-shadow-card-hover);
+  --shadow-af-nav-active: var(--af-shadow-nav-active);
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* ----- Base colors ----- */
+  --af-bg: #f7f8fa;
+  --af-surface: #ffffff;
+  --af-text-primary: #0f172a;
+  --af-text-secondary: #64748b;
+  --af-text-muted: #94a3b8;
+  --af-border: #e2e8f0;
+
+  /* ----- Accent colors ----- */
+  --af-primary-blue: #2563eb;
+  --af-secondary-teal: #0f766e;
+  --af-success: #16a34a;
+  --af-warning: #f59e0b;
+  --af-danger: #dc2626;
+  --af-info: #3b82f6;
+  --af-purple: #7c3aed;
+
+  /* ----- Soft backgrounds ----- */
+  --af-soft-blue: #eff6ff;
+  --af-soft-green: #ecfdf5;
+  --af-soft-amber: #fffbeb;
+  --af-soft-red: #fef2f2;
+  --af-soft-purple: #f5f3ff;
+  --af-soft-teal: #f0fdfa;
+  --af-soft-gray: #f8fafc;
+
+  /* ----- Layout ----- */
+  --af-sidebar-width: 240px;
+  --af-header-height: 72px;
+  --af-page-padding-desktop: 32px;
+  --af-page-padding-tablet: 24px;
+  --af-page-padding-mobile: 16px;
+  --af-section-gap: 24px;
+  --af-card-gap: 20px;
+  --af-card-padding-sm: 20px;
+  --af-card-padding: 24px;
+
+  /* ----- Radius ----- */
+  --af-radius-card: 20px;
+  --af-radius-button: 12px;
+  --af-radius-input: 12px;
+  --af-radius-badge: 999px;
+  --af-radius-sidebar-active: 14px;
+
+  /* ----- Shadows ----- */
+  --af-shadow-card: 0 8px 24px rgba(15, 23, 42, 0.04);
+  --af-shadow-card-hover: 0 12px 32px rgba(15, 23, 42, 0.08);
+  --af-shadow-nav-active: 0 8px 18px rgba(37, 99, 235, 0.25);
+
+  /* ----- Typography (sizes for later phases; Geist remains default) ----- */
+  --af-font-page-title: 1.75rem;
+  --af-font-page-title-lg: 2rem;
+  --af-font-section-title: 1.125rem;
+  --af-font-kpi-value: 1.75rem;
+  --af-font-table-header: 0.75rem;
+  --af-font-table-body: 0.875rem;
+  --af-font-helper: 0.8125rem;
+  --af-leading-page-title: 1.2;
+  --af-leading-section: 1.35;
+  --af-leading-helper: 1.5;
+
+  /* ----- shadcn semantic aliases (light) ----- */
+  --background: var(--af-bg);
+  --foreground: var(--af-text-primary);
+  --card: var(--af-surface);
+  --card-foreground: var(--af-text-primary);
+  --popover: var(--af-surface);
+  --popover-foreground: var(--af-text-primary);
+  --primary: var(--af-primary-blue);
+  --primary-foreground: #ffffff;
+  --secondary: var(--af-soft-gray);
+  --secondary-foreground: var(--af-text-primary);
+  --muted: var(--af-soft-gray);
+  --muted-foreground: var(--af-text-secondary);
+  --accent: var(--af-soft-blue);
+  --accent-foreground: var(--af-text-primary);
+  --destructive: var(--af-danger);
+  --border: var(--af-border);
+  --input: var(--af-border);
+  --ring: color-mix(in srgb, var(--af-primary-blue) 35%, transparent);
+
+  /* Charts: revenue, teal, expenses, success, purple */
+  --chart-1: var(--af-primary-blue);
+  --chart-2: var(--af-secondary-teal);
+  --chart-3: var(--af-warning);
+  --chart-4: var(--af-success);
+  --chart-5: var(--af-purple);
+
+  /* Base radius for buttons/inputs (12px); cards use --af-radius-card in Phase 2+ */
+  --radius: var(--af-radius-button);
+
+  /* Sidebar (light shell) */
+  --sidebar: var(--af-surface);
+  --sidebar-foreground: var(--af-text-primary);
+  --sidebar-primary: var(--af-primary-blue);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--af-soft-blue);
+  --sidebar-accent-foreground: var(--af-text-primary);
+  --sidebar-border: var(--af-border);
+  --sidebar-ring: var(--ring);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Dark mode: preserve shadcn structure; map accents where sensible */
+  --af-bg: #0f172a;
+  --af-surface: #1e293b;
+  --af-text-primary: #f8fafc;
+  --af-text-secondary: #94a3b8;
+  --af-text-muted: #64748b;
+  --af-border: color-mix(in srgb, #e2e8f0 12%, transparent);
+
+  --background: var(--af-bg);
+  --foreground: var(--af-text-primary);
+  --card: var(--af-surface);
+  --card-foreground: var(--af-text-primary);
+  --popover: var(--af-surface);
+  --popover-foreground: var(--af-text-primary);
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #334155;
+  --secondary-foreground: var(--af-text-primary);
+  --muted: #334155;
+  --muted-foreground: var(--af-text-secondary);
+  --accent: #1e3a5f;
+  --accent-foreground: var(--af-text-primary);
+  --destructive: #ef4444;
+  --border: var(--af-border);
+  --input: color-mix(in srgb, #e2e8f0 15%, transparent);
+  --ring: color-mix(in srgb, #3b82f6 45%, transparent);
+
+  --chart-1: #60a5fa;
+  --chart-2: #2dd4bf;
+  --chart-3: #fbbf24;
+  --chart-4: #4ade80;
+  --chart-5: #a78bfa;
+
+  --sidebar: var(--af-surface);
+  --sidebar-foreground: var(--af-text-primary);
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #334155;
+  --sidebar-accent-foreground: var(--af-text-primary);
+  --sidebar-border: var(--af-border);
+  --sidebar-ring: var(--ring);
 }
 
 @layer base {

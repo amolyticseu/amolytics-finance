@@ -1,19 +1,27 @@
 import Link from "next/link"
 
-import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
+import { SoftStatusBadge } from "@/components/design-system"
 import {
   DataTable,
   DataTableBody,
   DataTableHeader,
   DataTableTd,
   DataTableTh,
+  dataTableRowClassName,
 } from "@/components/shell/data-table"
 import { DataSourceNote } from "@/components/shell/data-source-note"
+import { EmptyTableState } from "@/components/shell/empty-table-state"
 import { PageAlert } from "@/components/shell/page-alert"
 import { PageHeader } from "@/components/shell/page-header"
-import { SectionCard } from "@/components/shell/section-card"
+import { SettingsPanelCard } from "@/components/settings/settings-panel-card"
+import { buttonVariants } from "@/components/ui/button"
 import { getClientsForManage } from "@/lib/data/clients"
+import {
+  clientStatusToken,
+  displayClientCode,
+  displayClientLabel,
+  displayContactLabel,
+} from "@/lib/settings/presentation"
 import { hasSupabaseEnv } from "@/lib/supabase/env"
 import { cn } from "@/lib/utils"
 
@@ -50,19 +58,21 @@ export default async function ClientsManagePage({ searchParams }: ClientsPagePro
         <PageAlert>Client deactivated.</PageAlert>
       ) : null}
 
-      <DataSourceNote
-        supabaseConfigured={supabaseConfigured}
-        source={source}
-        sourceLabel={source === "database" ? "clients table" : "built-in fallback"}
-        canMutate={canMutate}
-        variant="compact"
-      />
+      <div className="rounded-af-card border border-af-border bg-af-surface/80 px-4 py-3 shadow-af-card">
+        <DataSourceNote
+          supabaseConfigured={supabaseConfigured}
+          source={source}
+          sourceLabel={source === "database" ? "clients table" : "built-in fallback"}
+          canMutate={canMutate}
+          variant="compact"
+        />
+      </div>
 
-      <SectionCard
+      <SettingsPanelCard
         title="All clients"
         description={
           includeInactive
-            ? "Including inactive clients."
+            ? "Including inactive clients — presentation labels in table."
             : "Active clients only. Toggle below to include inactive."
         }
         action={
@@ -79,63 +89,61 @@ export default async function ClientsManagePage({ searchParams }: ClientsPagePro
         }
       >
         {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No clients yet.{" "}
-            {canMutate ? (
-              <Link href="/settings/clients/new" className="text-primary underline-offset-4 hover:underline">
-                Add the first client
-              </Link>
-            ) : (
-              "Connect Supabase to add clients."
-            )}
-          </p>
+          <EmptyTableState
+            message={
+              canMutate
+                ? "No clients yet. Add the first client."
+                : "No clients to show. Connect Supabase to add clients."
+            }
+          />
         ) : (
-          <DataTable>
-            <DataTableHeader>
-              <tr>
-                <DataTableTh>Code</DataTableTh>
-                <DataTableTh>Name</DataTableTh>
-                <DataTableTh>Contact</DataTableTh>
-                <DataTableTh align="right">Rate</DataTableTh>
-                <DataTableTh>Status</DataTableTh>
-                <DataTableTh align="right">Actions</DataTableTh>
-              </tr>
-            </DataTableHeader>
-            <DataTableBody>
-              {rows.map((c) => (
-                <tr
-                  key={c.id}
-                  className="border-b border-border/40 transition-colors hover:bg-muted/15 last:border-b-0"
-                >
-                  <DataTableTd className="font-mono text-xs">{c.code}</DataTableTd>
-                  <DataTableTd className="font-medium">{c.name}</DataTableTd>
-                  <DataTableTd className="text-muted-foreground">
-                    {c.contact_name ?? "—"}
-                  </DataTableTd>
-                  <DataTableTd align="right" className="tabular-nums">
-                    {c.hourly_rate != null ? `€${c.hourly_rate}` : "—"}
-                  </DataTableTd>
-                  <DataTableTd>
-                    {c.active ? (
-                      <Badge variant="secondary">Active</Badge>
-                    ) : (
-                      <Badge variant="outline">Inactive</Badge>
-                    )}
-                  </DataTableTd>
-                  <DataTableTd align="right">
-                    <Link
-                      href={`/settings/clients/${c.id}/edit`}
-                      className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-                    >
-                      {canMutate ? "Edit" : "View"}
-                    </Link>
-                  </DataTableTd>
+          <div className="overflow-x-auto">
+            <DataTable className="min-w-4xl border-0 bg-transparent shadow-none">
+              <DataTableHeader>
+                <tr>
+                  <DataTableTh>Client</DataTableTh>
+                  <DataTableTh>Code</DataTableTh>
+                  <DataTableTh>Contact</DataTableTh>
+                  <DataTableTh align="right">Rate</DataTableTh>
+                  <DataTableTh>Currency</DataTableTh>
+                  <DataTableTh>Status</DataTableTh>
+                  <DataTableTh align="right">Actions</DataTableTh>
                 </tr>
-              ))}
-            </DataTableBody>
-          </DataTable>
+              </DataTableHeader>
+              <DataTableBody>
+                {rows.map((c) => (
+                  <tr key={c.id} className={dataTableRowClassName}>
+                    <DataTableTd className="font-medium text-af-text-primary">
+                      {displayClientLabel(c)}
+                    </DataTableTd>
+                    <DataTableTd className="font-mono text-xs text-af-text-secondary">
+                      {displayClientCode(c)}
+                    </DataTableTd>
+                    <DataTableTd className="text-af-text-secondary">
+                      {displayContactLabel(c)}
+                    </DataTableTd>
+                    <DataTableTd align="right" className="tabular-nums">
+                      {c.hourly_rate != null ? `€${c.hourly_rate}` : "—"}
+                    </DataTableTd>
+                    <DataTableTd>{c.currency}</DataTableTd>
+                    <DataTableTd>
+                      <SoftStatusBadge status={clientStatusToken(c.active)} />
+                    </DataTableTd>
+                    <DataTableTd align="right">
+                      <Link
+                        href={`/settings/clients/${c.id}/edit`}
+                        className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                      >
+                        {canMutate ? "Edit" : "View"}
+                      </Link>
+                    </DataTableTd>
+                  </tr>
+                ))}
+              </DataTableBody>
+            </DataTable>
+          </div>
         )}
-      </SectionCard>
+      </SettingsPanelCard>
 
       <Link
         href="/settings"

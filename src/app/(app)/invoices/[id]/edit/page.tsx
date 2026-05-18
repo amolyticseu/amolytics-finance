@@ -2,7 +2,12 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 
 import { InvoiceForm } from "@/components/invoices/invoice-form"
+import { PageAlert } from "@/components/shell/page-alert"
 import { PageHeader } from "@/components/shell/page-header"
+import {
+  displayClientLabel,
+  formatPeriodLabel,
+} from "@/lib/invoices/presentation"
 import { buttonVariants } from "@/components/ui/button"
 import { getInvoiceById, getInvoiceFormOptions } from "@/lib/data/invoices"
 import { invoiceToFormDefaults } from "@/lib/forms/invoice-form-defaults"
@@ -35,18 +40,10 @@ export default async function EditInvoicePage({
     <div className="space-y-8">
       <PageHeader
         title={canMutate ? "Edit invoice" : "View invoice"}
-        description={
-          row.invoice_number?.trim()
-            ? row.invoice_number
-            : `${row.year ?? "—"}-${String(row.month ?? 0).padStart(2, "0")} · ${row.period_code ?? "—"}`
-        }
+        description={`${displayClientLabel(row)} · ${formatPeriodLabel(row)}`}
       />
 
-      {query.saved === "1" ? (
-        <p className="rounded-lg border border-border/80 bg-muted/30 px-3 py-2 text-sm text-foreground">
-          Changes saved.
-        </p>
-      ) : null}
+      {query.saved === "1" ? <PageAlert>Changes saved.</PageAlert> : null}
 
       <InvoiceForm
         mode="edit"

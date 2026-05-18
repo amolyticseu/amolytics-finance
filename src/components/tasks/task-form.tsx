@@ -8,8 +8,8 @@ import { ActionBanner } from "@/components/forms/action-banner"
 import { ReadOnlyFallbackBanner } from "@/components/forms/read-only-fallback-banner"
 import { PageAlert } from "@/components/shell/page-alert"
 import { FormActions } from "@/components/forms/form-actions"
-import { FormSection } from "@/components/forms/form-section"
 import { LabeledField } from "@/components/forms/labeled-field"
+import { TasksPanelCard } from "@/components/tasks/tasks-panel-card"
 import { SubmitButton } from "@/components/forms/submit-button"
 import { buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,10 +30,10 @@ import {
 } from "@/lib/validation/task-schema"
 
 const selectClassName =
-  "flex h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm dark:bg-input/30"
+  "flex h-9 w-full rounded-lg border border-af-border bg-af-surface px-2.5 text-sm text-af-text-primary shadow-none outline-none focus-visible:border-af-primary-blue focus-visible:ring-2 focus-visible:ring-af-primary-blue/20 disabled:opacity-50"
 
 const textareaClassName =
-  "flex w-full min-w-0 rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30"
+  "flex w-full min-w-0 rounded-lg border border-af-border bg-af-surface px-2.5 py-2 text-sm text-af-text-primary shadow-none outline-none focus-visible:border-af-primary-blue focus-visible:ring-2 focus-visible:ring-af-primary-blue/20 disabled:opacity-50"
 
 const CATEGORY_LABEL: Record<TaskCategoryDb, string> = {
   invoice: "Invoice",
@@ -147,11 +147,11 @@ export function TaskForm({
       <form action={saveAction} className="space-y-6">
         {taskId ? <input type="hidden" name="id" value={taskId} /> : null}
 
-        <FormSection
+        <TasksPanelCard
           title="Task details"
           description="Manual compliance or operations checkpoint."
+          contentClassName="grid gap-4 sm:grid-cols-2"
         >
-          <div className="grid gap-4 sm:grid-cols-2">
             <LabeledField
               label="Title"
               htmlFor="title"
@@ -268,14 +268,13 @@ export function TaskForm({
                 disabled={disabled}
               />
             </LabeledField>
-          </div>
-        </FormSection>
+        </TasksPanelCard>
 
-        <FormSection
+        <TasksPanelCard
           title="Related record"
           description="Optional link to an invoice, payment, or other entity (UUID when known)."
+          contentClassName="grid gap-4 sm:grid-cols-2"
         >
-          <div className="grid gap-4 sm:grid-cols-2">
             <LabeledField
               label="Entity type"
               htmlFor="related_entity_type"
@@ -323,8 +322,7 @@ export function TaskForm({
                 className={textareaClassName}
               />
             </LabeledField>
-          </div>
-        </FormSection>
+        </TasksPanelCard>
 
         <FormActions>
           <Link
@@ -340,11 +338,11 @@ export function TaskForm({
       </form>
 
       {mode === "edit" && canMutate && taskId ? (
-        <FormSection
+        <TasksPanelCard
           title="Status actions"
           description="Quick updates without editing the full form."
+          contentClassName="flex flex-wrap gap-2"
         >
-          <div className="flex flex-wrap gap-2">
             {currentStatus !== "done" ? (
               <form action={doneAction}>
                 <input type="hidden" name="id" value={taskId} />
@@ -377,12 +375,11 @@ export function TaskForm({
                 </SubmitButton>
               </form>
             ) : null}
-          </div>
-        </FormSection>
+        </TasksPanelCard>
       ) : null}
 
       {mode === "edit" && canMutate && taskId ? (
-        <FormSection
+        <TasksPanelCard
           title="Delete task"
           description="Permanently removes this row (schema has no soft-delete column)."
         >
@@ -392,7 +389,7 @@ export function TaskForm({
               Delete task
             </SubmitButton>
           </form>
-        </FormSection>
+        </TasksPanelCard>
       ) : null}
     </div>
   )

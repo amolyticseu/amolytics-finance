@@ -23,7 +23,7 @@ export default async function NewPaymentPage() {
         description="Record cash in or out. Invoice, salary, and expense links are optional."
       />
       {options.canMutate && options.bankAccounts.length === 0 ? (
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
+        <p className="rounded-af-card border border-af-warning/30 bg-af-soft-amber px-3 py-2 text-sm text-af-text-primary">
           Add at least one active bank account in Settings before recording payments.
         </p>
       ) : null}

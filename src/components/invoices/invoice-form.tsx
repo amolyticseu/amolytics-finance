@@ -8,7 +8,7 @@ import { ActionBanner } from "@/components/forms/action-banner"
 import { ReadOnlyFallbackBanner } from "@/components/forms/read-only-fallback-banner"
 import { PageAlert } from "@/components/shell/page-alert"
 import { FormActions } from "@/components/forms/form-actions"
-import { FormSection } from "@/components/forms/form-section"
+import { InvoicePanelCard } from "@/components/invoices/invoice-panel-card"
 import { LabeledField } from "@/components/forms/labeled-field"
 import { SubmitButton } from "@/components/forms/submit-button"
 import { buttonVariants } from "@/components/ui/button"
@@ -27,10 +27,10 @@ import {
 } from "@/lib/validation/invoice-schema"
 
 const selectClassName =
-  "flex h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm dark:bg-input/30"
+  "flex h-9 w-full rounded-lg border border-af-border bg-af-surface px-2.5 text-sm text-af-text-primary shadow-none outline-none focus-visible:border-af-primary-blue focus-visible:ring-2 focus-visible:ring-af-primary-blue/20 disabled:opacity-50"
 
 const textareaClassName =
-  "flex w-full min-w-0 rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30"
+  "flex w-full min-w-0 rounded-lg border border-af-border bg-af-surface px-2.5 py-2 text-sm text-af-text-primary shadow-none outline-none focus-visible:border-af-primary-blue focus-visible:ring-2 focus-visible:ring-af-primary-blue/20 disabled:opacity-50"
 
 type InvoiceFormProps = {
   mode: "create" | "edit"
@@ -103,7 +103,7 @@ export function InvoiceForm({
           <input type="hidden" name="id" value={defaultValues.id} />
         ) : null}
 
-        <FormSection
+        <InvoicePanelCard
           title="Client & reference"
           description="Bill-to client and optional invoice number."
         >
@@ -144,9 +144,9 @@ export function InvoiceForm({
               />
             </LabeledField>
           </div>
-        </FormSection>
+        </InvoicePanelCard>
 
-        <FormSection
+        <InvoicePanelCard
           title="Period"
           description="BMF third-of-month windows T01 (1–10), T02 (11–20), T03 (21–end)."
         >
@@ -191,9 +191,9 @@ export function InvoiceForm({
               />
             </LabeledField>
           </div>
-        </FormSection>
+        </InvoicePanelCard>
 
-        <FormSection title="Amounts" description="Hours, rate, and total amount.">
+        <InvoicePanelCard title="Amounts" description="Hours, rate, and total amount.">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <LabeledField label="Hours" htmlFor="hours" error={errors.hours?.message}>
               <Input
@@ -268,9 +268,9 @@ export function InvoiceForm({
               />
             </LabeledField>
           </div>
-        </FormSection>
+        </InvoicePanelCard>
 
-        <FormSection title="Status & dates">
+        <InvoicePanelCard title="Status & dates">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <LabeledField label="Status" htmlFor="status" error={errors.status?.message}>
               <select
@@ -327,9 +327,9 @@ export function InvoiceForm({
               />
             </LabeledField>
           </div>
-        </FormSection>
+        </InvoicePanelCard>
 
-        <FormSection title="Payment details" description="Bank account and reference only — no payment rows created here.">
+        <InvoicePanelCard title="Payment details" description="Bank account and reference only — no payment rows created here.">
           <div className="grid gap-4 sm:grid-cols-2">
             <LabeledField
               label="Bank account"
@@ -379,7 +379,7 @@ export function InvoiceForm({
               />
             </LabeledField>
           </div>
-        </FormSection>
+        </InvoicePanelCard>
 
         <FormActions>
           <Link
@@ -395,7 +395,7 @@ export function InvoiceForm({
       </form>
 
       {mode === "edit" && canMutate && !isCancelled && defaultValues.id ? (
-        <FormSection
+        <InvoicePanelCard
           title="Cancel invoice"
           description="Sets status to cancelled and soft-deletes from the active register. Does not create payment records."
         >
@@ -405,7 +405,7 @@ export function InvoiceForm({
               Cancel invoice
             </SubmitButton>
           </form>
-        </FormSection>
+        </InvoicePanelCard>
       ) : null}
     </div>
   )

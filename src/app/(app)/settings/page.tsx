@@ -1,29 +1,91 @@
 import Link from "next/link"
+import { Database, Landmark, RefreshCw, Users, Wallet } from "lucide-react"
 
-import { DataSourceNote } from "@/components/shell/data-source-note"
-import { PageHeader } from "@/components/shell/page-header"
-import { buttonVariants } from "@/components/ui/button"
-import { SectionCard } from "@/components/shell/section-card"
+import { PremiumKpiCard, SoftStatusBadge } from "@/components/design-system"
 import {
   DataTable,
   DataTableBody,
   DataTableHeader,
   DataTableTd,
   DataTableTh,
+  dataTableRowClassName,
 } from "@/components/shell/data-table"
-import { Separator } from "@/components/ui/separator"
-import {
-  MALTA_FIXED_MONTHLY_EUR,
-  MONTHLY_EMI_INR_TOTAL,
-} from "@/data/mock/constants"
+import { DataSourceNote } from "@/components/shell/data-source-note"
+import { EmptyTableState } from "@/components/shell/empty-table-state"
+import { PageHeader } from "@/components/shell/page-header"
+import { SettingsDetailList } from "@/components/settings/settings-detail-list"
+import { SettingsPanelCard } from "@/components/settings/settings-panel-card"
+import { SettingsSafetyChecklist } from "@/components/settings/settings-safety-checklist"
+import { buttonVariants } from "@/components/ui/button"
 import { getActiveBankAccounts } from "@/lib/data/bank-accounts"
 import { getActiveClients } from "@/lib/data/clients"
 import { getLatestExchangeRate } from "@/lib/data/settings"
+import {
+  bankStatusToken,
+  buildAppPreferences,
+  buildBusinessDefaults,
+  buildDataConnection,
+  buildInvoicePaymentDefaults,
+  buildSafetyChecklist,
+  buildSettingsKpis,
+  clientStatusToken,
+  displayAccountLabel,
+  displayAccountPurpose,
+  displayClientCode,
+  displayClientLabel,
+  displayContactLabel,
+  displayInstitutionLabel,
+  displayMaskedId,
+  isPrimaryAccount,
+} from "@/lib/settings/presentation"
 import { hasSupabaseEnv } from "@/lib/supabase/env"
-import { formatEur } from "@/lib/format"
+import type { BankAccountRow } from "@/lib/supabase/types"
+import type { ClientRow } from "@/lib/supabase/types"
 import { cn } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
+
+function clientActions(canMutate: boolean) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Link
+        href="/settings/clients"
+        className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+      >
+        Manage clients
+      </Link>
+      {canMutate ? (
+        <Link
+          href="/settings/clients/new"
+          className={cn(buttonVariants({ size: "sm" }))}
+        >
+          Add client
+        </Link>
+      ) : null}
+    </div>
+  )
+}
+
+function bankActions(canMutate: boolean) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Link
+        href="/settings/bank-accounts"
+        className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+      >
+        Manage accounts
+      </Link>
+      {canMutate ? (
+        <Link
+          href="/settings/bank-accounts/new"
+          className={cn(buttonVariants({ size: "sm" }))}
+        >
+          Add account
+        </Link>
+      ) : null}
+    </div>
+  )
+}
 
 export default async function SettingsPage() {
   const [fx, banks, clients] = await Promise.all([
@@ -37,196 +99,301 @@ export default async function SettingsPage() {
     fx.source === "fallback" ||
     banks.source === "fallback" ||
     clients.source === "fallback"
+  const canMutate = supabaseConfigured
+
+  const kpis = buildSettingsKpis(
+    anyFallback,
+    clients.rows.length,
+    banks.rows.length,
+    fx.row,
+    banks.rows
+  )
+  const dataConnection = buildDataConnection(
+    supabaseConfigured,
+    anyFallback,
+    canMutate
+  )
+  const businessDefaults = buildBusinessDefaults(fx.row)
+  const invoiceDefaults = buildInvoicePaymentDefaults(kpis.primaryInvoiceAccount)
+  const appPreferences = buildAppPreferences()
+  const safetyItems = buildSafetyChecklist(canMutate)
+
+  const connectionRows = [
+    { label: "Current source", value: dataConnection.currentSource },
+    {
+      label: "Database",
+      value: dataConnection.databaseConnected ? "Connected" : "Not connected",
+    },
+    { label: "Mode", value: dataConnection.mode },
+    {
+      label: "Mutations",
+      value: dataConnection.mutationsEnabled ? "Enabled" : "Disabled",
+    },
+    { label: "Last check", value: dataConnection.lastCheck },
+  ]
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Settings"
-        description="Workspace defaults, live Supabase reads when configured, and built-in fallbacks for local work without a database."
+        description="Manage finance defaults, clients, bank accounts, and app preferences."
       />
 
-      <DataSourceNote
-        supabaseConfigured={supabaseConfigured}
-        source={anyFallback ? "fallback" : "database"}
-        sourceLabel={
-          anyFallback
-            ? "at least one section used fallbacks"
-            : "settings reads (FX, clients, bank_accounts)"
-        }
-        canMutate={supabaseConfigured}
-      />
+      <div className="rounded-af-card border border-af-border bg-af-surface/80 px-4 py-3 shadow-af-card">
+        <DataSourceNote
+          supabaseConfigured={supabaseConfigured}
+          source={anyFallback ? "fallback" : "database"}
+          sourceLabel={
+            anyFallback
+              ? "at least one section used fallbacks"
+              : "settings reads (FX, clients, bank_accounts)"
+          }
+          canMutate={canMutate}
+        />
+      </div>
+
+      <section
+        className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
+        aria-label="Settings summary"
+      >
+        <PremiumKpiCard
+          label="Data Source"
+          value={kpis.dataSourceLabel}
+          icon={<Database aria-hidden />}
+          badge="Mode"
+          helper={anyFallback ? "Local preview active" : "Live database"}
+          variant={kpis.dataSourceVariant}
+        />
+        <PremiumKpiCard
+          label="Active Clients"
+          value={String(kpis.activeClients)}
+          icon={<Users aria-hidden />}
+          badge="Billing"
+          helper="Invoice-ready clients"
+          variant="blue"
+        />
+        <PremiumKpiCard
+          label="Active Accounts"
+          value={String(kpis.activeAccounts)}
+          icon={<Landmark aria-hidden />}
+          badge="Banking"
+          helper="Payment accounts"
+          variant="teal"
+        />
+        <PremiumKpiCard
+          label="Exchange Rate"
+          value={kpis.exchangeRateLabel}
+          icon={<RefreshCw aria-hidden />}
+          badge="Planning"
+          helper="EUR → INR"
+          variant="amber"
+        />
+        <PremiumKpiCard
+          label="Primary Invoice Account"
+          value={kpis.primaryInvoiceAccount}
+          icon={<Wallet aria-hidden />}
+          badge="Invoices"
+          helper="Default collection account"
+          variant="green"
+        />
+      </section>
+
+      <SettingsPanelCard
+        title="Data Connection"
+        description="Current app data source and fallback behavior."
+        className="w-full"
+      >
+        <SettingsDetailList items={connectionRows} />
+      </SettingsPanelCard>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <SectionCard
-          title="Planning FX (EUR → INR)"
-          description={`Source: ${fx.source === "database" ? "exchange_rates table" : "built-in default (mock constants)"}.`}
+        <SettingsPanelCard
+          title="Business Defaults"
+          description="Workspace planning values — presentation only."
         >
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">Rate</dt>
-              <dd className="font-medium tabular-nums">
-                1 {fx.row.base_currency} = {fx.row.rate} {fx.row.target_currency}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">Rate date</dt>
-              <dd className="tabular-nums text-muted-foreground">
-                {fx.row.rate_date ?? "—"}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">Row notes / origin</dt>
-              <dd className="max-w-[60%] text-right text-muted-foreground">
-                {fx.row.source ?? "—"}
-                {fx.row.notes ? ` · ${fx.row.notes}` : null}
-              </dd>
-            </div>
-          </dl>
-        </SectionCard>
+          <SettingsDetailList items={businessDefaults} />
+        </SettingsPanelCard>
 
-        <SectionCard
-          title="Active clients"
-          description={`Source: ${clients.source === "database" ? "clients table" : "built-in default"}.`}
-          action={
-            <Link
-              href="/settings/clients"
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-            >
-              Manage clients
-            </Link>
-          }
+        <SettingsPanelCard
+          title="Invoice & Payment Defaults"
+          description="Collection and proof indicators — no uploads."
         >
-          {clients.rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No active clients in the database yet. Add rows in Supabase or use
-              seed.sql.
-            </p>
-          ) : (
-            <DataTable>
+          <SettingsDetailList items={invoiceDefaults} />
+        </SettingsPanelCard>
+      </div>
+
+      <SettingsPanelCard
+        title="Clients"
+        description="Manage active clients used in invoices and reports."
+        action={clientActions(canMutate)}
+      >
+        {clients.rows.length === 0 ? (
+          <EmptyTableState message="No active clients. Add one when Supabase is connected." />
+        ) : (
+          <div className="overflow-x-auto">
+            <DataTable className="min-w-4xl border-0 bg-transparent shadow-none">
               <DataTableHeader>
                 <tr>
+                  <DataTableTh>Client</DataTableTh>
                   <DataTableTh>Code</DataTableTh>
-                  <DataTableTh>Name</DataTableTh>
                   <DataTableTh>Contact</DataTableTh>
+                  <DataTableTh>Currency</DataTableTh>
                   <DataTableTh align="right">Rate</DataTableTh>
-                  <DataTableTh>CCY</DataTableTh>
+                  <DataTableTh>Status</DataTableTh>
+                  <DataTableTh align="right">Actions</DataTableTh>
                 </tr>
               </DataTableHeader>
               <DataTableBody>
-                {clients.rows.map((c) => (
-                  <tr
-                    key={c.id}
-                    className="border-b border-border/40 transition-colors hover:bg-muted/15 last:border-b-0"
-                  >
-                    <DataTableTd className="font-mono text-xs">{c.code}</DataTableTd>
-                    <DataTableTd className="font-medium">{c.name}</DataTableTd>
-                    <DataTableTd className="text-muted-foreground">
-                      {c.contact_name ?? "—"}
-                    </DataTableTd>
-                    <DataTableTd align="right" className="tabular-nums">
-                      {c.hourly_rate != null ? `€${c.hourly_rate}` : "—"}
-                    </DataTableTd>
-                    <DataTableTd>{c.currency}</DataTableTd>
-                  </tr>
+                {clients.rows.map((row) => (
+                  <ClientOverviewRow
+                    key={row.id}
+                    row={row}
+                    canMutate={canMutate}
+                  />
                 ))}
               </DataTableBody>
             </DataTable>
-          )}
-        </SectionCard>
-      </div>
+          </div>
+        )}
+      </SettingsPanelCard>
 
-      <SectionCard
-        title="Bank accounts"
-        description={`Source: ${banks.source === "database" ? "bank_accounts table" : "built-in default list"}. Active, not soft-deleted. Client invoice payments: prefer HSBC Malta; Wise is not the primary invoice account.`}
-        action={
-          <Link
-            href="/settings/bank-accounts"
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-          >
-            Manage accounts
-          </Link>
-        }
+      <SettingsPanelCard
+        title="Bank Accounts"
+        description="Manage payment accounts without exposing sensitive details."
+        action={bankActions(canMutate)}
       >
         {banks.rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No active bank accounts in the database. Run seed.sql or add rows in
-            Supabase.
-          </p>
+          <EmptyTableState message="No active bank accounts. Add one when Supabase is connected." />
         ) : (
-          <DataTable>
-            <DataTableHeader>
-              <tr>
-                <DataTableTh>Account</DataTableTh>
-                <DataTableTh>Institution</DataTableTh>
-                <DataTableTh>Type</DataTableTh>
-                <DataTableTh>CCY</DataTableTh>
-                <DataTableTh>Masked ID</DataTableTh>
-                <DataTableTh>Country</DataTableTh>
-                <DataTableTh>Business</DataTableTh>
-              </tr>
-            </DataTableHeader>
-            <DataTableBody>
-              {banks.rows.map((b) => (
-                <tr
-                  key={b.id}
-                  className="border-b border-border/40 transition-colors hover:bg-muted/15 last:border-b-0"
-                >
-                  <DataTableTd className="font-medium">{b.account_name}</DataTableTd>
-                  <DataTableTd>{b.institution_name}</DataTableTd>
-                  <DataTableTd className="text-muted-foreground">
-                    {b.account_type ?? "—"}
-                  </DataTableTd>
-                  <DataTableTd>{b.currency}</DataTableTd>
-                  <DataTableTd className="font-mono text-xs text-muted-foreground">
-                    {b.iban_masked ?? "—"}
-                  </DataTableTd>
-                  <DataTableTd className="text-muted-foreground">
-                    {b.country ?? "—"}
-                  </DataTableTd>
-                  <DataTableTd className="text-muted-foreground">
-                    {b.is_business_account ? "Yes" : "No"}
-                  </DataTableTd>
+          <div className="overflow-x-auto">
+            <DataTable className="min-w-5xl border-0 bg-transparent shadow-none">
+              <DataTableHeader>
+                <tr>
+                  <DataTableTh>Account</DataTableTh>
+                  <DataTableTh>Institution</DataTableTh>
+                  <DataTableTh>Currency</DataTableTh>
+                  <DataTableTh>Purpose</DataTableTh>
+                  <DataTableTh>Masked ID</DataTableTh>
+                  <DataTableTh>Primary</DataTableTh>
+                  <DataTableTh>Status</DataTableTh>
+                  <DataTableTh align="right">Actions</DataTableTh>
                 </tr>
-              ))}
-            </DataTableBody>
-          </DataTable>
+              </DataTableHeader>
+              <DataTableBody>
+                {banks.rows.map((row) => (
+                  <BankOverviewRow
+                    key={row.id}
+                    row={row}
+                    allRows={banks.rows}
+                    canMutate={canMutate}
+                  />
+                ))}
+              </DataTableBody>
+            </DataTable>
+          </div>
         )}
-      </SectionCard>
+      </SettingsPanelCard>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <SectionCard
-          title="Planning references (mock)"
-          description="Static figures still used elsewhere in the app until those pages read from Supabase."
+        <SettingsPanelCard
+          title="App Preferences"
+          description="Visual placeholders — not persisted in this phase."
         >
-          <dl className="space-y-3 text-sm">
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">Malta fixed (mock)</dt>
-              <dd className="font-medium tabular-nums">
-                {formatEur(MALTA_FIXED_MONTHLY_EUR)}/mo
-              </dd>
-            </div>
-            <Separator />
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">India EMI total (mock)</dt>
-              <dd className="font-medium tabular-nums">
-                ₹{MONTHLY_EMI_INR_TOTAL.toLocaleString("en-IN")}/mo
-              </dd>
-            </div>
-          </dl>
-        </SectionCard>
+          <SettingsDetailList items={appPreferences} />
+        </SettingsPanelCard>
 
-        <SectionCard
-          title="Preferences"
-          description="Placeholders for a later phase."
-        >
-          <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>· Fiscal year: Jan–Dec</li>
-            <li>· Base currency: EUR</li>
-            <li>· Payroll currency: INR</li>
-            <li>· Notifications: off</li>
-          </ul>
-        </SectionCard>
+        <SettingsSafetyChecklist items={safetyItems} />
       </div>
+
+      <p className="text-af-helper text-af-text-muted">
+        Overview tables use presentation-only client and account labels. Edit forms
+        still show stored values when Supabase is connected for real editing.
+      </p>
     </div>
+  )
+}
+
+function ClientOverviewRow({
+  row,
+  canMutate,
+}: {
+  row: ClientRow
+  canMutate: boolean
+}) {
+  return (
+    <tr className={dataTableRowClassName}>
+      <DataTableTd className="font-medium text-af-text-primary">
+        {displayClientLabel(row)}
+      </DataTableTd>
+      <DataTableTd className="font-mono text-xs text-af-text-secondary">
+        {displayClientCode(row)}
+      </DataTableTd>
+      <DataTableTd className="text-af-text-secondary">
+        {displayContactLabel(row)}
+      </DataTableTd>
+      <DataTableTd>{row.currency}</DataTableTd>
+      <DataTableTd align="right" className="tabular-nums text-af-text-secondary">
+        {row.hourly_rate != null ? `€${row.hourly_rate}` : "—"}
+      </DataTableTd>
+      <DataTableTd>
+        <SoftStatusBadge status={clientStatusToken(row.active)} />
+      </DataTableTd>
+      <DataTableTd align="right">
+        <Link
+          href={`/settings/clients/${row.id}/edit`}
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+        >
+          {canMutate ? "Edit" : "View"}
+        </Link>
+      </DataTableTd>
+    </tr>
+  )
+}
+
+function BankOverviewRow({
+  row,
+  allRows,
+  canMutate,
+}: {
+  row: BankAccountRow
+  allRows: BankAccountRow[]
+  canMutate: boolean
+}) {
+  const primary = isPrimaryAccount(row, allRows)
+
+  return (
+    <tr className={dataTableRowClassName}>
+      <DataTableTd className="font-medium text-af-text-primary">
+        {displayAccountLabel(row)}
+      </DataTableTd>
+      <DataTableTd className="text-af-text-secondary">
+        {displayInstitutionLabel(row)}
+      </DataTableTd>
+      <DataTableTd>{row.currency}</DataTableTd>
+      <DataTableTd className="text-af-text-secondary">
+        {displayAccountPurpose(row)}
+      </DataTableTd>
+      <DataTableTd className="font-mono text-xs text-af-text-muted">
+        {displayMaskedId(row)}
+      </DataTableTd>
+      <DataTableTd>
+        {primary ? (
+          <SoftStatusBadge status="primary" label="Primary" />
+        ) : (
+          <span className="text-af-text-muted">—</span>
+        )}
+      </DataTableTd>
+      <DataTableTd>
+        <SoftStatusBadge status={bankStatusToken(row)} />
+      </DataTableTd>
+      <DataTableTd align="right">
+        <Link
+          href={`/settings/bank-accounts/${row.id}/edit`}
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+        >
+          {canMutate ? "Edit" : "View"}
+        </Link>
+      </DataTableTd>
+    </tr>
   )
 }

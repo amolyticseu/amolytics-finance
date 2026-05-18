@@ -20,10 +20,10 @@ export default async function NewInvoicePage() {
     <div className="space-y-8">
       <PageHeader
         title="Add invoice"
-        description="Manual invoice entry — client, T01–T03 period, amounts, and status. No PDF or payment rows."
+        description="Manual invoice entry — client, T01–T03 period, amounts, and status."
       />
       {canMutate && clients.length === 0 ? (
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:text-amber-100">
+        <p className="rounded-af-card border border-af-warning/30 bg-af-soft-amber px-3 py-2 text-sm text-af-text-primary">
           Add at least one active client in Settings before creating an invoice.
         </p>
       ) : null}

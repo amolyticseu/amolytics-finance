@@ -7,8 +7,8 @@ import type { z } from "zod"
 import { ActionBanner } from "@/components/forms/action-banner"
 import { ReadOnlyFallbackBanner } from "@/components/forms/read-only-fallback-banner"
 import { FormActions } from "@/components/forms/form-actions"
-import { FormSection } from "@/components/forms/form-section"
 import { LabeledField } from "@/components/forms/labeled-field"
+import { TeamPanelCard } from "@/components/team/team-panel-card"
 import { SubmitButton } from "@/components/forms/submit-button"
 import { buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,7 +25,7 @@ import {
 } from "@/lib/validation/team-member-schema"
 
 const textareaClassName =
-  "flex w-full min-w-0 rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30"
+  "flex w-full min-w-0 rounded-lg border border-af-border bg-af-surface px-2.5 py-2 text-sm text-af-text-primary shadow-none outline-none focus-visible:border-af-primary-blue focus-visible:ring-2 focus-visible:ring-af-primary-blue/20 disabled:opacity-50"
 
 type TeamMemberFormProps = {
   mode: "create" | "edit"
@@ -92,8 +92,11 @@ export function TeamMemberForm({
           <input type="hidden" name="id" value={defaultValues.id} />
         ) : null}
 
-        <FormSection title="Member details" description="India delivery bench roster entry.">
-          <div className="grid gap-4 sm:grid-cols-2">
+        <TeamPanelCard
+          title="Member details"
+          description="India delivery bench roster entry."
+          contentClassName="grid gap-4 sm:grid-cols-2"
+        >
             <LabeledField label="Name" htmlFor="name" error={errors.name?.message}>
               <Input
                 id="name"
@@ -194,8 +197,7 @@ export function TeamMemberForm({
                 />
               </LabeledField>
             ) : null}
-          </div>
-        </FormSection>
+        </TeamPanelCard>
 
         <FormActions>
           <Link
@@ -211,7 +213,7 @@ export function TeamMemberForm({
       </form>
 
       {mode === "edit" && isActive && canMutate && defaultValues.id ? (
-        <FormSection
+        <TeamPanelCard
           title="Deactivate"
           description="Sets active to false. Existing salary and payment links are preserved."
         >
@@ -221,7 +223,7 @@ export function TeamMemberForm({
               Deactivate member
             </SubmitButton>
           </form>
-        </FormSection>
+        </TeamPanelCard>
       ) : null}
     </div>
   )

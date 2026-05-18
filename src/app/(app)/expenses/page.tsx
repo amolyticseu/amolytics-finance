@@ -1,78 +1,63 @@
-import type { ReactNode } from "react"
+import Link from "next/link"
+import {
+  AlertCircle,
+  FileWarning,
+  Flame,
+  RefreshCw,
+  Repeat,
+  ShieldCheck,
+} from "lucide-react"
 
-import { DataSourceNote } from "@/components/shell/data-source-note"
-import { PageAlert } from "@/components/shell/page-alert"
-import { PageHeader } from "@/components/shell/page-header"
-import { EmptyTableState } from "@/components/shell/empty-table-state"
-import { dataTableRowClassName } from "@/components/shell/data-table"
-import { SectionCard } from "@/components/shell/section-card"
+import { CategoryBreakdownChart } from "@/components/expenses/category-breakdown-chart"
+import { ExpensePanelCard } from "@/components/expenses/expense-panel-card"
+import { ExpenseProofCompact } from "@/components/expenses/expense-proof-compact"
+import { ExpenseTrendChart } from "@/components/expenses/expense-trend-chart"
+import { ExpensesLifecycle } from "@/components/expenses/expenses-lifecycle"
+import { ExpensesProofChecklist } from "@/components/expenses/expenses-proof-checklist"
+import { ExpensesRebillableFocus } from "@/components/expenses/expenses-rebillable-focus"
+import { ExpensesRecurringBurn } from "@/components/expenses/expenses-recurring-burn"
+import { PremiumKpiCard, SoftStatusBadge } from "@/components/design-system"
 import {
   DataTable,
   DataTableBody,
   DataTableHeader,
   DataTableTd,
   DataTableTh,
+  dataTableRowClassName,
 } from "@/components/shell/data-table"
-import { StatusBadge } from "@/components/shell/status-badge"
-import {
-  MALTA_FIXED_MONTHLY_EUR,
-  MONTHLY_EMI_INR_TOTAL,
-  WORKSPACE_RECOVERY_PENDING_EUR,
-  inrToEur,
-} from "@/data/mock/constants"
-import Link from "next/link"
-
+import { DataSourceNote } from "@/components/shell/data-source-note"
+import { EmptyTableState } from "@/components/shell/empty-table-state"
+import { PageAlert } from "@/components/shell/page-alert"
+import { PageHeader } from "@/components/shell/page-header"
 import { buttonVariants } from "@/components/ui/button"
 import { getExpenses } from "@/lib/data/expenses"
+import {
+  buildCategoryBreakdown,
+  buildExpenseKpis,
+  buildExpenseLifecycleStages,
+  buildExpenseProofChecklist,
+  buildExpenseTrendSeries,
+  buildRebillableFocusItems,
+  buildRecurringBurn,
+  categorySoftToken,
+  displayClientLabel,
+  displayPaymentRef,
+  displayVendorLabel,
+  expenseStatusSoftToken,
+  formatCategoryLabel,
+  proofPercent,
+} from "@/lib/expenses/presentation"
 import { formatEur, formatInr } from "@/lib/format"
 import { hasSupabaseEnv } from "@/lib/supabase/env"
-import { cn } from "@/lib/utils"
-import type { ExpenseCategoryDb } from "@/types"
 import type { ExpenseListItem } from "@/lib/supabase/types"
+import { cn } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
-
-const emiEur = inrToEur(MONTHLY_EMI_INR_TOTAL)
-
-function formatCategoryLabel(cat: ExpenseCategoryDb): string {
-  if (cat === "emi") return "EMI"
-  return cat
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ")
-}
 
 function formatMoney(amount: number, currency: string): string {
   if (currency === "INR") return formatInr(amount)
   if (currency === "EUR") return formatEur(amount)
   return `${amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })} ${currency}`
-}
-
-function clientLabel(row: ExpenseListItem): string {
-  const name = row.client_name?.trim()
-  const code = row.client_code?.trim()
-  if (name && code) return `${name} (${code})`
-  if (name) return name
-  if (code) return code
-  if (row.linked_client_id) return row.linked_client_id
-  return "—"
-}
-
-function dateCell(row: ExpenseListItem): ReactNode {
-  const primary = row.expense_date || "—"
-  if (!row.due_date || row.due_date === row.expense_date) {
-    return <span className="tabular-nums text-muted-foreground">{primary}</span>
-  }
-  return (
-    <div className="space-y-0.5 tabular-nums">
-      <div className="text-foreground">{primary}</div>
-      <div className="text-xs text-muted-foreground">Due {row.due_date}</div>
-    </div>
-  )
-}
-
-function yesNo(v: boolean): string {
-  return v ? "Yes" : "No"
 }
 
 type ExpensesPageProps = {
@@ -85,11 +70,25 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
   const { rows, source, canMutate } = await getExpenses({ includeRemoved })
   const supabaseConfigured = hasSupabaseEnv()
 
+  const kpis = buildExpenseKpis(rows)
+  const trendSeries = buildExpenseTrendSeries(rows)
+  const categoryBreakdown = buildCategoryBreakdown(rows)
+  const focusItems = buildRebillableFocusItems(rows)
+  const recurringBurn = buildRecurringBurn(rows)
+  const lifecycleStages = buildExpenseLifecycleStages(rows)
+  const proofChecklist = buildExpenseProofChecklist(rows)
+
+  const registerDescription = includeRemoved
+    ? "Including cancelled / soft-deleted rows."
+    : source === "database"
+      ? "Active expenses from Supabase. Vendor and client columns use presentation labels."
+      : "Mock rows for local development. Presentation labels applied."
+
   return (
     <div className="space-y-8">
       <PageHeader
         title="Expenses"
-        description={`Malta fixed ~${formatEur(MALTA_FIXED_MONTHLY_EUR)}/mo · India EMI total ₹${MONTHLY_EMI_INR_TOTAL.toLocaleString("en-IN")} (~${formatEur(emiEur)}) · workspace recovery pending ${formatEur(WORKSPACE_RECOVERY_PENDING_EUR)}.`}
+        description="Track operating costs, recurring burn, rebillables, and proof readiness."
         actions={
           canMutate ? (
             <Link
@@ -106,111 +105,218 @@ export default async function ExpensesPage({ searchParams }: ExpensesPageProps) 
         <PageAlert>Expense cancelled.</PageAlert>
       ) : null}
 
-      <DataSourceNote
-        supabaseConfigured={supabaseConfigured}
-        source={source}
-        sourceLabel={
-          source === "database"
-            ? "expenses (+ clients & bank_accounts joins)"
-            : "built-in seed-aligned mock lines"
-        }
-        canMutate={canMutate}
-      />
+      <div className="rounded-af-card border border-af-border bg-af-surface/80 px-4 py-3 shadow-af-card">
+        <DataSourceNote
+          supabaseConfigured={supabaseConfigured}
+          source={source}
+          sourceLabel={
+            source === "database"
+              ? "expenses (+ clients & bank_accounts joins)"
+              : "built-in seed-aligned mock lines"
+          }
+          canMutate={canMutate}
+        />
+      </div>
 
-      <SectionCard
-        title="Monthly cost lines"
-        description={
-          includeRemoved
-            ? "Including cancelled / soft-deleted rows."
-            : source === "database"
-              ? "Active expenses from Supabase. Manual entry only."
-              : "Categorized mock rows for local development."
-        }
-        action={
-          <Link
-            href={includeRemoved ? "/expenses" : "/expenses?showRemoved=1"}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-          >
-            {includeRemoved ? "Hide removed" : "Show removed"}
-          </Link>
-        }
+      <section
+        className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
+        aria-label="Expense summary"
       >
-        {rows.length === 0 ? (
-          <EmptyTableState message="No expenses to show. Add one when Supabase is connected, or check Show removed." />
-        ) : (
-        <DataTable className="min-w-[56rem]">
-          <DataTableHeader>
-            <tr>
-              <DataTableTh>Dates</DataTableTh>
-              <DataTableTh>Category</DataTableTh>
-              <DataTableTh>Name</DataTableTh>
-              <DataTableTh align="right">Amount</DataTableTh>
-              <DataTableTh>Currency</DataTableTh>
-              <DataTableTh>Status</DataTableTh>
-              <DataTableTh>Recurring</DataTableTh>
-              <DataTableTh>Rebillable</DataTableTh>
-              <DataTableTh>Linked client</DataTableTh>
-              <DataTableTh>Bank / account</DataTableTh>
-              <DataTableTh>Payment ref</DataTableTh>
-              <DataTableTh>Notes</DataTableTh>
-              <DataTableTh align="right">Actions</DataTableTh>
-            </tr>
-          </DataTableHeader>
-          <DataTableBody>
-            {rows.map((row) => (
-              <tr key={row.id} className={dataTableRowClassName}>
-                <DataTableTd>{dateCell(row)}</DataTableTd>
-                <DataTableTd className="font-medium">
-                  {formatCategoryLabel(row.category)}
-                </DataTableTd>
-                <DataTableTd className="max-w-[14rem] text-muted-foreground">
-                  {row.name}
-                </DataTableTd>
-                <DataTableTd align="right" className="font-medium tabular-nums">
-                  {formatMoney(row.amount, row.currency)}
-                </DataTableTd>
-                <DataTableTd className="tabular-nums text-muted-foreground">
-                  {row.currency}
-                </DataTableTd>
-                <DataTableTd>
-                  <StatusBadge status={row.status} />
-                </DataTableTd>
-                <DataTableTd className="tabular-nums text-muted-foreground">
-                  {yesNo(row.recurring)}
-                </DataTableTd>
-                <DataTableTd className="tabular-nums text-muted-foreground">
-                  {yesNo(row.rebillable)}
-                </DataTableTd>
-                <DataTableTd className="max-w-[12rem] truncate text-sm">
-                  {clientLabel(row)}
-                </DataTableTd>
-                <DataTableTd className="max-w-[12rem]">
-                  {row.bank_display ?? (
-                    <span className="text-muted-foreground">
-                      {row.bank_account_id ?? "—"}
-                    </span>
-                  )}
-                </DataTableTd>
-                <DataTableTd className="max-w-[10rem] truncate font-mono text-xs text-muted-foreground">
-                  {row.payment_reference ?? "—"}
-                </DataTableTd>
-                <DataTableTd className="max-w-[14rem] truncate text-muted-foreground">
-                  {row.notes?.trim() ? row.notes : "—"}
-                </DataTableTd>
-                <DataTableTd align="right">
-                  <Link
-                    href={`/expenses/${row.id}/edit`}
-                    className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
-                  >
-                    {canMutate ? "Edit" : "View"}
-                  </Link>
-                </DataTableTd>
-              </tr>
-            ))}
-          </DataTableBody>
-        </DataTable>
-        )}
-      </SectionCard>
+        <PremiumKpiCard
+          label="Total Expenses"
+          value={formatEur(kpis.totalExpensesEur)}
+          icon={<Flame aria-hidden />}
+          badge="EUR equiv."
+          helper="Active lines"
+          variant="amber"
+        />
+        <PremiumKpiCard
+          label="Recurring Burn"
+          value={formatEur(kpis.recurringBurnEur)}
+          icon={<Repeat aria-hidden />}
+          badge="Monthly"
+          helper="Recurring lines"
+          variant="blue"
+        />
+        <PremiumKpiCard
+          label="Rebillable Pending"
+          value={formatEur(kpis.rebillablePendingEur)}
+          icon={<RefreshCw aria-hidden />}
+          badge="Recovery"
+          helper="Pending rebillable"
+          variant="teal"
+        />
+        <PremiumKpiCard
+          label="Overdue Expenses"
+          value={formatEur(kpis.overdueExpensesEur)}
+          icon={<AlertCircle aria-hidden />}
+          badge="Attention"
+          helper="Past due status"
+          variant="red"
+        />
+        <PremiumKpiCard
+          label="Proof Completion"
+          value={`${kpis.proofCompletionPercent}%`}
+          icon={<ShieldCheck aria-hidden />}
+          badge="Readiness"
+          helper="Avg checklist score"
+          variant="green"
+        />
+      </section>
+
+      <div className="grid gap-6 xl:grid-cols-3">
+        <ExpensePanelCard
+          className="xl:col-span-2"
+          title="Expense Trend"
+          description="Monthly operating cost movement"
+        >
+          <ExpenseTrendChart data={trendSeries} />
+        </ExpensePanelCard>
+
+        <ExpensePanelCard title="Category Breakdown" description="EUR-equivalent mix">
+          <CategoryBreakdownChart data={categoryBreakdown} />
+        </ExpensePanelCard>
+      </div>
+
+      <ExpensesLifecycle stages={lifecycleStages} />
+
+      <div className="grid gap-6 xl:grid-cols-3">
+        <ExpensePanelCard
+          className="xl:col-span-2"
+          title="Expenses Register"
+          description="Monitor operating costs, proof status, and rebillable recovery."
+          action={
+            <Link
+              href={includeRemoved ? "/expenses" : "/expenses?showRemoved=1"}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              {includeRemoved ? "Hide removed" : "Show removed"}
+            </Link>
+          }
+        >
+          <p className="mb-4 text-af-helper text-af-text-secondary">
+            {registerDescription}
+          </p>
+          {rows.length === 0 ? (
+            <EmptyTableState message="No expenses to show. Add one when Supabase is connected, or check Show removed." />
+          ) : (
+            <div className="overflow-x-auto">
+              <DataTable className="min-w-272 border-0 bg-transparent shadow-none">
+                <DataTableHeader>
+                  <tr>
+                    <DataTableTh>Date</DataTableTh>
+                    <DataTableTh>Category</DataTableTh>
+                    <DataTableTh>Vendor / Name</DataTableTh>
+                    <DataTableTh align="right">Amount</DataTableTh>
+                    <DataTableTh>Type</DataTableTh>
+                    <DataTableTh>Linked Client</DataTableTh>
+                    <DataTableTh>Payment Ref</DataTableTh>
+                    <DataTableTh>Proof</DataTableTh>
+                    <DataTableTh>Status</DataTableTh>
+                    <DataTableTh align="right">Actions</DataTableTh>
+                  </tr>
+                </DataTableHeader>
+                <DataTableBody>
+                  {rows.map((row) => (
+                    <ExpenseRegisterRow
+                      key={row.id}
+                      row={row}
+                      canMutate={canMutate}
+                    />
+                  ))}
+                </DataTableBody>
+              </DataTable>
+            </div>
+          )}
+        </ExpensePanelCard>
+
+        <div className="space-y-6">
+          <ExpensesRebillableFocus items={focusItems} />
+          <ExpensesRecurringBurn rows={recurringBurn} />
+          <ExpensesProofChecklist items={proofChecklist} />
+        </div>
+      </div>
+
+      <p className="flex items-center gap-2 text-af-helper text-af-text-muted">
+        <FileWarning className="size-3.5 shrink-0" aria-hidden />
+        Register vendor and client columns use presentation-only labels. KPI totals use
+        EUR equivalents from the current list. Forms still use real options when Supabase
+        is connected.
+      </p>
     </div>
+  )
+}
+
+function ExpenseRegisterRow({
+  row,
+  canMutate,
+}: {
+  row: ExpenseListItem
+  canMutate: boolean
+}) {
+  const datePrimary = row.expense_date || "—"
+  const dateCell =
+    row.due_date && row.due_date !== row.expense_date ? (
+      <div className="space-y-0.5 tabular-nums">
+        <div className="text-af-text-primary">{datePrimary}</div>
+        <div className="text-xs text-af-text-secondary">Due {row.due_date}</div>
+      </div>
+    ) : (
+      <span className="tabular-nums text-af-text-secondary">{datePrimary}</span>
+    )
+
+  return (
+    <tr className={dataTableRowClassName}>
+      <DataTableTd>{dateCell}</DataTableTd>
+      <DataTableTd>
+        <SoftStatusBadge
+          status={categorySoftToken(row.category)}
+          label={formatCategoryLabel(row.category)}
+        />
+      </DataTableTd>
+      <DataTableTd className="max-w-48 truncate font-medium text-af-text-primary">
+        {displayVendorLabel(row)}
+      </DataTableTd>
+      <DataTableTd align="right" className="font-medium tabular-nums text-af-text-primary">
+        {formatMoney(row.amount, row.currency)}
+      </DataTableTd>
+      <DataTableTd>
+        <div className="flex flex-wrap gap-1">
+          {row.recurring ? (
+            <SoftStatusBadge status="recurring" label="Recurring" />
+          ) : null}
+          {row.rebillable ? (
+            <SoftStatusBadge status="rebillable" label="Rebillable" />
+          ) : null}
+          {!row.recurring && !row.rebillable ? (
+            <span className="text-xs text-af-text-muted">—</span>
+          ) : null}
+        </div>
+      </DataTableTd>
+      <DataTableTd>
+        {row.linked_client_id ? (
+          <SoftStatusBadge status="primary" label={displayClientLabel(row)} />
+        ) : (
+          <span className="text-af-text-muted">—</span>
+        )}
+      </DataTableTd>
+      <DataTableTd className="max-w-32 truncate font-mono text-xs text-af-text-secondary">
+        {displayPaymentRef(row)}
+      </DataTableTd>
+      <DataTableTd>
+        <ExpenseProofCompact percent={proofPercent(row)} />
+      </DataTableTd>
+      <DataTableTd>
+        <SoftStatusBadge status={expenseStatusSoftToken(row.status)} />
+      </DataTableTd>
+      <DataTableTd align="right">
+        <Link
+          href={`/expenses/${row.id}/edit`}
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+        >
+          {canMutate ? "Edit" : "View"}
+        </Link>
+      </DataTableTd>
+    </tr>
   )
 }

@@ -6,8 +6,8 @@ import { useActionState, useEffect } from "react"
 import { ActionBanner } from "@/components/forms/action-banner"
 import { ReadOnlyFallbackBanner } from "@/components/forms/read-only-fallback-banner"
 import { FormActions } from "@/components/forms/form-actions"
-import { FormSection } from "@/components/forms/form-section"
 import { LabeledField } from "@/components/forms/labeled-field"
+import { SettingsPanelCard } from "@/components/settings/settings-panel-card"
 import { SubmitButton } from "@/components/forms/submit-button"
 import { buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -90,8 +90,11 @@ export function ClientForm({
           <input type="hidden" name="id" value={defaultValues.id} />
         ) : null}
 
-        <FormSection title="Client details" description="Billing identity and rate.">
-          <div className="grid gap-4 sm:grid-cols-2">
+        <SettingsPanelCard
+          title="Client details"
+          description="Billing identity and rate."
+          contentClassName="grid gap-4 sm:grid-cols-2"
+        >
             <LabeledField
               label="Name"
               htmlFor="name"
@@ -178,11 +181,10 @@ export function ClientForm({
                 name="billing_cycle_notes"
                 disabled={disabled}
                 rows={3}
-                className="flex w-full min-w-0 rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30"
+                className="flex w-full min-w-0 rounded-lg border border-af-border bg-af-surface px-2.5 py-2 text-sm text-af-text-primary shadow-none outline-none focus-visible:border-af-primary-blue focus-visible:ring-2 focus-visible:ring-af-primary-blue/20 disabled:opacity-50"
               />
             </LabeledField>
-          </div>
-        </FormSection>
+        </SettingsPanelCard>
 
         <FormActions>
           <Link
@@ -198,7 +200,7 @@ export function ClientForm({
       </form>
 
       {mode === "edit" && isActive && canMutate && defaultValues.id ? (
-        <FormSection
+        <SettingsPanelCard
           title="Deactivate"
           description="Sets active to false. Historical invoices keep their client reference."
         >
@@ -208,7 +210,7 @@ export function ClientForm({
               Deactivate client
             </SubmitButton>
           </form>
-        </FormSection>
+        </SettingsPanelCard>
       ) : null}
     </div>
   )

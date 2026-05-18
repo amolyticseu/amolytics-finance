@@ -8,7 +8,7 @@ import { ActionBanner } from "@/components/forms/action-banner"
 import { ReadOnlyFallbackBanner } from "@/components/forms/read-only-fallback-banner"
 import { PageAlert } from "@/components/shell/page-alert"
 import { FormActions } from "@/components/forms/form-actions"
-import { FormSection } from "@/components/forms/form-section"
+import { PaymentPanelCard } from "@/components/payments/payment-panel-card"
 import { LabeledField } from "@/components/forms/labeled-field"
 import { SubmitButton } from "@/components/forms/submit-button"
 import { buttonVariants } from "@/components/ui/button"
@@ -28,10 +28,10 @@ import {
 } from "@/lib/validation/payment-schema"
 
 const selectClassName =
-  "flex h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm dark:bg-input/30"
+  "flex h-9 w-full rounded-lg border border-af-border bg-af-surface px-2.5 text-sm text-af-text-primary shadow-none outline-none focus-visible:border-af-primary-blue focus-visible:ring-2 focus-visible:ring-af-primary-blue/20 disabled:opacity-50"
 
 const textareaClassName =
-  "flex w-full min-w-0 rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30"
+  "flex w-full min-w-0 rounded-lg border border-af-border bg-af-surface px-2.5 py-2 text-sm text-af-text-primary shadow-none outline-none focus-visible:border-af-primary-blue focus-visible:ring-2 focus-visible:ring-af-primary-blue/20 disabled:opacity-50"
 
 const PAYMENT_TYPE_LABEL: Record<PaymentTypeDb, string> = {
   client_receipt: "Client receipt",
@@ -111,7 +111,7 @@ export function PaymentForm({
           <input type="hidden" name="id" value={defaultValues.id} />
         ) : null}
 
-        <FormSection
+        <PaymentPanelCard
           title="Payment type & direction"
           description="Invoice, salary, and expense links are all optional."
         >
@@ -154,9 +154,9 @@ export function PaymentForm({
               </select>
             </LabeledField>
           </div>
-        </FormSection>
+        </PaymentPanelCard>
 
-        <FormSection title="Amount & date">
+        <PaymentPanelCard title="Amount & date">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <LabeledField
               label="Amount"
@@ -223,9 +223,9 @@ export function PaymentForm({
               </select>
             </LabeledField>
           </div>
-        </FormSection>
+        </PaymentPanelCard>
 
-        <FormSection
+        <PaymentPanelCard
           title="Optional links"
           description="Link to an invoice, salary run, or expense when helpful — not required."
         >
@@ -291,9 +291,9 @@ export function PaymentForm({
               </select>
             </LabeledField>
           </div>
-        </FormSection>
+        </PaymentPanelCard>
 
-        <FormSection title="Reference & notes">
+        <PaymentPanelCard title="Reference & notes">
           <div className="grid gap-4 sm:grid-cols-2">
             <LabeledField
               label="Reference"
@@ -335,7 +335,7 @@ export function PaymentForm({
               />
             </LabeledField>
           </div>
-        </FormSection>
+        </PaymentPanelCard>
 
         <FormActions>
           <Link
@@ -351,7 +351,7 @@ export function PaymentForm({
       </form>
 
       {mode === "edit" && canMutate && !isDeleted && defaultValues.id ? (
-        <FormSection
+        <PaymentPanelCard
           title="Remove payment"
           description="Soft-deletes this row from the active register. Does not change linked invoice, salary, or expense records."
         >
@@ -361,7 +361,7 @@ export function PaymentForm({
               Soft-delete payment
             </SubmitButton>
           </form>
-        </FormSection>
+        </PaymentPanelCard>
       ) : null}
     </div>
   )

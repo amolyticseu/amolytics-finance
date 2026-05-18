@@ -34,11 +34,11 @@ export default async function EditSalaryPaymentPage({
     <div className="space-y-8">
       <PageHeader
         title={canMutate ? "Edit salary payment" : "View salary payment"}
-        description={`${row.member_name ?? "Member"} · ${row.year}-${String(row.month).padStart(2, "0")}`}
+        description={`Payroll line · ${row.year}-${String(row.month).padStart(2, "0")}`}
       />
 
       {query.saved === "1" ? (
-        <p className="rounded-lg border border-border/80 bg-muted/30 px-3 py-2 text-sm text-foreground">
+        <p className="rounded-af-card border border-af-border bg-af-soft-green px-3 py-2 text-sm text-af-text-primary">
           Changes saved.
         </p>
       ) : null}

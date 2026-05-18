@@ -5,10 +5,9 @@ import { useActionState, useEffect } from "react"
 
 import { ActionBanner } from "@/components/forms/action-banner"
 import { ReadOnlyFallbackBanner } from "@/components/forms/read-only-fallback-banner"
-import { PageAlert } from "@/components/shell/page-alert"
 import { FormActions } from "@/components/forms/form-actions"
-import { FormSection } from "@/components/forms/form-section"
 import { LabeledField } from "@/components/forms/labeled-field"
+import { SettingsPanelCard } from "@/components/settings/settings-panel-card"
 import { SubmitButton } from "@/components/forms/submit-button"
 import { buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -91,11 +90,11 @@ export function BankAccountForm({
           <input type="hidden" name="id" value={defaultValues.id} />
         ) : null}
 
-        <FormSection
+        <SettingsPanelCard
           title="Account details"
           description="Flexible records — not a fixed provider enum. Sensitive numbers are stored masked only."
+          contentClassName="grid gap-4 sm:grid-cols-2"
         >
-          <div className="grid gap-4 sm:grid-cols-2">
             <LabeledField
               label="Account name"
               htmlFor="account_name"
@@ -207,7 +206,7 @@ export function BankAccountForm({
                 {...register("is_business_account")}
                 name="is_business_account"
                 disabled={disabled}
-                className="flex h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm dark:bg-input/30"
+                className="flex h-9 w-full rounded-lg border border-af-border bg-af-surface px-2.5 text-sm text-af-text-primary shadow-none outline-none focus-visible:border-af-primary-blue focus-visible:ring-2 focus-visible:ring-af-primary-blue/20 disabled:opacity-50"
               >
                 <option value="false">No</option>
                 <option value="true">Yes</option>
@@ -225,7 +224,7 @@ export function BankAccountForm({
                 name="bank_address"
                 disabled={disabled}
                 rows={2}
-                className="flex w-full min-w-0 rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30"
+                className="flex w-full min-w-0 rounded-lg border border-af-border bg-af-surface px-2.5 py-2 text-sm text-af-text-primary shadow-none outline-none focus-visible:border-af-primary-blue focus-visible:ring-2 focus-visible:ring-af-primary-blue/20 disabled:opacity-50"
               />
             </LabeledField>
             <LabeledField
@@ -240,11 +239,10 @@ export function BankAccountForm({
                 name="notes"
                 disabled={disabled}
                 rows={2}
-                className="flex w-full min-w-0 rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30"
+                className="flex w-full min-w-0 rounded-lg border border-af-border bg-af-surface px-2.5 py-2 text-sm text-af-text-primary shadow-none outline-none focus-visible:border-af-primary-blue focus-visible:ring-2 focus-visible:ring-af-primary-blue/20 disabled:opacity-50"
               />
             </LabeledField>
-          </div>
-        </FormSection>
+        </SettingsPanelCard>
 
         <FormActions>
           <Link
@@ -260,7 +258,7 @@ export function BankAccountForm({
       </form>
 
       {mode === "edit" && isActive && canMutate && defaultValues.id ? (
-        <FormSection
+        <SettingsPanelCard
           title="Deactivate"
           description="Sets active to false and deleted_at. Existing payment links are preserved."
         >
@@ -270,7 +268,7 @@ export function BankAccountForm({
               Deactivate bank account
             </SubmitButton>
           </form>
-        </FormSection>
+        </SettingsPanelCard>
       ) : null}
     </div>
   )

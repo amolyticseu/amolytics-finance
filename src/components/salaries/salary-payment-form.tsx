@@ -8,7 +8,7 @@ import { ActionBanner } from "@/components/forms/action-banner"
 import { ReadOnlyFallbackBanner } from "@/components/forms/read-only-fallback-banner"
 import { PageAlert } from "@/components/shell/page-alert"
 import { FormActions } from "@/components/forms/form-actions"
-import { FormSection } from "@/components/forms/form-section"
+import { SalaryPanelCard } from "@/components/salaries/salary-panel-card"
 import { LabeledField } from "@/components/forms/labeled-field"
 import { SubmitButton } from "@/components/forms/submit-button"
 import { buttonVariants } from "@/components/ui/button"
@@ -28,10 +28,10 @@ import {
 } from "@/lib/validation/salary-payment-schema"
 
 const selectClassName =
-  "flex h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm dark:bg-input/30"
+  "flex h-9 w-full rounded-lg border border-af-border bg-af-surface px-2.5 text-sm text-af-text-primary shadow-none outline-none focus-visible:border-af-primary-blue focus-visible:ring-2 focus-visible:ring-af-primary-blue/20 disabled:opacity-50"
 
 const textareaClassName =
-  "flex w-full min-w-0 rounded-lg border border-input bg-background px-2.5 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30"
+  "flex w-full min-w-0 rounded-lg border border-af-border bg-af-surface px-2.5 py-2 text-sm text-af-text-primary shadow-none outline-none focus-visible:border-af-primary-blue focus-visible:ring-2 focus-visible:ring-af-primary-blue/20 disabled:opacity-50"
 
 const STATUS_LABEL: Record<SalaryPaymentStatus, string> = {
   pending: "Pending",
@@ -112,7 +112,7 @@ export function SalaryPaymentForm({
           <input type="hidden" name="id" value={defaultValues.id} />
         ) : null}
 
-        <FormSection
+        <SalaryPanelCard
           title="Payroll period"
           description="Manual entry only — enter amounts yourself; nothing is auto-calculated."
         >
@@ -161,9 +161,9 @@ export function SalaryPaymentForm({
               />
             </LabeledField>
           </div>
-        </FormSection>
+        </SalaryPanelCard>
 
-        <FormSection title="Amounts">
+        <SalaryPanelCard title="Amounts">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <LabeledField
               label="Base amount"
@@ -241,9 +241,9 @@ export function SalaryPaymentForm({
               />
             </LabeledField>
           </div>
-        </FormSection>
+        </SalaryPanelCard>
 
-        <FormSection title="Status & payout">
+        <SalaryPanelCard title="Status & payout">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <LabeledField label="Status" htmlFor="status" error={errors.status?.message}>
               <select
@@ -324,7 +324,7 @@ export function SalaryPaymentForm({
               />
             </LabeledField>
           </div>
-        </FormSection>
+        </SalaryPanelCard>
 
         <FormActions>
           <Link
@@ -340,7 +340,7 @@ export function SalaryPaymentForm({
       </form>
 
       {mode === "edit" && canMutate && !isDeleted && defaultValues.id ? (
-        <FormSection
+        <SalaryPanelCard
           title="Remove salary payment"
           description="Soft-deletes from the active payroll list. Does not remove the team member."
         >
@@ -350,7 +350,7 @@ export function SalaryPaymentForm({
               Soft-delete salary payment
             </SubmitButton>
           </form>
-        </FormSection>
+        </SalaryPanelCard>
       ) : null}
     </div>
   )
