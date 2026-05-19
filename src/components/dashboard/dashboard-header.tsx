@@ -40,7 +40,7 @@ export function DashboardHeader() {
             Export
           </Button>
           <time
-            dateTime={today.toISOString()}
+            dateTime={format(today, "yyyy-MM-dd")}
             className="hidden text-sm tabular-nums text-slate-500 sm:inline"
           >
             {format(today, "MMM d, yyyy")}

@@ -61,7 +61,7 @@ export function AppHeader() {
           <span className="hidden md:inline">Export</span>
         </Button>
         <time
-          dateTime={today.toISOString()}
+          dateTime={format(today, "yyyy-MM-dd")}
           className="hidden text-sm tabular-nums text-af-text-secondary lg:inline"
         >
           {format(today, "MMM d, yyyy")}
